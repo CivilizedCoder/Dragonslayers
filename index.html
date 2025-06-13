@@ -4,56 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>D&D Initiative Tracker</title>
-    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts for a fantasy look -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- Link to your custom stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="antialiased">
 
-    <!-- Modal for character creation -->
     <div id="character-modal" class="modal-overlay">
         <div class="modal-content">
-            <h2 class="text-3xl font-fantasy mb-4 text-center text-amber-300">Create Your Adventurer</h2>
-            <div class="space-y-4">
-                <div>
-                    <label for="xml-upload" class="block text-sm font-medium text-slate-300 cursor-pointer text-center bg-slate-600 hover:bg-slate-500 p-2 rounded-md">Import from XML</label>
-                    <input type="file" id="xml-upload" class="hidden" accept=".xml, .txt">
-                    <p id="xml-status" class="text-xs text-center text-green-400 mt-1 h-4"></p>
+            <h2 class="text-3xl font-fantasy mb-4 text-center text-amber-300">Join the Adventure</h2>
+            <div class="space-y-4 text-center">
+                <p class="text-slate-300">Upload your character sheet file to begin.</p>
+                
+                <input type="file" id="sheet-upload-input" class="hidden" accept=".html, .htm">
+                <label for="sheet-upload-input" id="sheet-upload-label" class="w-full inline-block bg-slate-600 hover:bg-slate-700 cursor-pointer text-white font-bold py-3 px-4 rounded-lg transition duration-300">
+                    Select Character Sheet (.htm)
+                </label>
+                
+                <div id="character-preview" class="hidden text-left bg-slate-800 p-4 rounded-lg border border-slate-600">
+                    <h3 class="font-bold text-lg text-amber-300">Character Found:</h3>
+                    <p id="preview-name"><span class="font-semibold">Name:</span> </p>
+                    <p id="preview-class"><span class="font-semibold">Class:</span> </p>
+                    <p id="preview-hp"><span class="font-semibold">HP:</span> </p>
+                    <p id="preview-weapon"><span class="font-semibold">Weapon:</span> </p>
                 </div>
-                <div>
-                    <label for="name" class="block text-sm font-medium text-slate-300">Character Name</label>
-                    <input type="text" id="name" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+
+                <div id="parse-error" class="hidden text-left bg-red-800/50 text-red-300 p-3 rounded-lg border border-red-600">
+                    <p>Could not parse the character sheet. Please ensure it's a valid D&D 5e HTML file from aidedd.org.</p>
                 </div>
-                 <div>
-                    <label for="weapon" class="block text-sm font-medium text-slate-300">Weapon</label>
-                    <select id="weapon" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500">
-                        <!-- Weapon options will be populated by JS -->
-                    </select>
-                </div>
-                <div>
-                    <label for="description" class="block text-sm font-medium text-slate-300">Brief Description</label>
-                    <textarea id="description" rows="3" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500"></textarea>
-                </div>
-                <div class="flex items-center">
-                    <input id="is-dm" name="is-dm" type="checkbox" class="h-4 w-4 rounded border-slate-600 bg-slate-700 text-amber-600 focus:ring-amber-500">
-                    <label for="is-dm" class="ml-2 block text-sm text-slate-300">I am the Dungeon Master (DM)</label>
-                </div>
-                <button id="join-button" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
-                    Join the Adventure
+
+                <button id="join-button" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 disabled:bg-slate-500 disabled:cursor-not-allowed" disabled>
+                    Join with Character
                 </button>
-            </div>
-             <div id="auth-info" class="mt-4 text-center text-xs text-slate-400">
-                <p>Your User ID will appear here after joining.</p>
             </div>
         </div>
     </div>
     
-    <!-- Modal for NPC creation -->
     <div id="npc-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2 class="text-3xl font-fantasy mb-4 text-center text-red-300">Create New Enemy</h2>
@@ -73,27 +61,7 @@
             </div>
         </div>
     </div>
-    
-    <!-- Modal for Player Inventory -->
-    <div id="inventory-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-             <div class="flex justify-between items-center mb-4">
-                 <h2 class="text-3xl font-fantasy text-amber-300">Inventory</h2>
-                 <button id="close-inventory-button" class="bg-red-800 hover:bg-red-700 text-white font-bold h-8 w-8 rounded-full flex items-center justify-center text-2xl">&times;</button>
-            </div>
-            <div class="space-y-4">
-                <div id="inventory-list" class="space-y-2 bg-slate-800 p-3 rounded-md min-h-[10rem] max-h-64 overflow-y-auto">
-                    <!-- Inventory items will be populated here -->
-                </div>
-                <div class="flex gap-2">
-                    <input type="text" id="inventory-item-input" placeholder="Add new item..." class="flex-grow bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500">
-                    <button id="add-inventory-item-button" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg">Add</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Main content area -->
     <div class="container mx-auto p-4 md:p-8">
         <header class="text-center mb-8 relative">
             <h1 class="text-5xl md:text-6xl font-fantasy text-amber-300">D&D Party Tracker</h1>
@@ -103,17 +71,13 @@
 
         <main class="flex flex-col lg:flex-row gap-8">
             
-            <!-- Left Column: Allies -->
             <aside class="w-full lg:w-1/3">
                 <h2 class="text-3xl font-fantasy text-center mb-4 text-amber-300">Allies</h2>
                 <div id="players-list" class="space-y-4">
-                    <!-- Player cards will be inserted here -->
-                </div>
+                    </div>
             </aside>
 
-            <!-- Middle Column: Tools -->
             <section class="w-full lg:w-1/3">
-                <!-- Dice Roller Section -->
                 <div id="dice-roller" class="p-6 rounded-lg card w-full mx-auto hidden">
                     <h2 class="text-3xl font-fantasy text-center mb-4 text-amber-300">Roll the Bones</h2>
                     <div class="flex flex-col justify-center items-center gap-4">
@@ -139,21 +103,18 @@
                 </div>
             </section>
 
-            <!-- Right Column: Enemies -->
             <aside class="w-full lg:w-1/3">
                 <div class="flex justify-center items-center mb-4">
                     <h2 class="text-3xl font-fantasy text-red-400">Enemies</h2>
                     <button id="add-npc-button" class="hidden ml-4 bg-red-800 hover:bg-red-700 text-white font-bold h-8 w-8 rounded-full flex items-center justify-center text-2xl">+</button>
                 </div>
                 <div id="enemies-list" class="space-y-4">
-                    <!-- Enemy cards will be inserted here -->
-                </div>
+                    </div>
             </aside>
 
         </main>
     </div>
 
-    <!-- Link to your JavaScript file -->
     <script src="script.js" type="module"></script>
 </body>
 </html>
