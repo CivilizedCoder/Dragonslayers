@@ -173,15 +173,30 @@ function parseCharacterSheet(htmlString) {
                 character.skills.push(skillName);
             }
         });
-
+        
+        const inventoryItems = new Set();
         const equipmentText = getdiv('.block.b31 .divedit');
         character.equipment = equipmentText;
-        character.inventory = [];
+
+        // Scan equipment text for known items
         Object.keys(WEAPONS).forEach(key => {
             if (equipmentText.toLowerCase().includes(WEAPONS[key].name.toLowerCase())) {
-                character.inventory.push(key);
+                inventoryItems.add(key);
             }
         });
+
+        // Scan attacks box for weapons
+        doc.querySelectorAll('.block.b28 .line.line2 input:first-child').forEach(input => {
+            const weaponName = input.value.trim().toLowerCase();
+            if (weaponName) {
+                const weaponKey = Object.keys(WEAPONS).find(key => WEAPONS[key].name.toLowerCase() === weaponName);
+                if (weaponKey) {
+                    inventoryItems.add(weaponKey);
+                }
+            }
+        });
+
+        character.inventory = Array.from(inventoryItems);
 
 
         character.coins = {
@@ -443,9 +458,11 @@ function createPlayerCard(playerData) {
     
     const createSelect = (hand) => {
         let optionsHtml = '<option value="">- Empty -</option>';
-        sheet.inventory.forEach(itemKey => {
+        (sheet.inventory || []).forEach(itemKey => {
             const item = WEAPONS[itemKey];
-            optionsHtml += `<option value="${itemKey}" ${sheet[hand] === itemKey ? 'selected' : ''}>${item.name}</option>`;
+            if (item) {
+                optionsHtml += `<option value="${itemKey}" ${sheet[hand] === itemKey ? 'selected' : ''}>${item.name}</option>`;
+            }
         });
         return `<select data-hand="${hand}" class="editable-field w-full text-sm" ${!canEdit ? 'disabled' : ''}>${optionsHtml}</select>`;
     }
