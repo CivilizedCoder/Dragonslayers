@@ -144,30 +144,40 @@ function parseCharacterSheet(htmlString) {
         const hpEl = doc.querySelector('.block.b24 .line1 input');
         if (!hpEl) throw new Error("Parsing failed: Could not find the 'Hit Point Maximum' input field.");
         character.hp = parseInt(hpEl.value, 10);
+        if (isNaN(character.hp)) throw new Error("Parsing failed: HP is not a valid number.");
 
-        const weaponNameEl = doc.querySelector('.block.b28 .line.line2:first-of-type input:first-of-type');
-        if (!weaponNameEl) throw new Error("Parsing failed: Could not find the first weapon in the 'Attacks' list.");
-        const weaponNameFromSheet = weaponNameEl.value.trim().toLowerCase();
+        let weaponNameFromSheet = '';
+        const attackBox = doc.querySelector('.block.b28 .divedit');
+        if (attackBox) {
+            const firstStrongTag = attackBox.querySelector('strong');
+            if (firstStrongTag && firstStrongTag.textContent.trim()) {
+                weaponNameFromSheet = firstStrongTag.textContent.trim().toLowerCase();
+            }
+        }
+        
+        if (!weaponNameFromSheet) {
+            const weaponNameEl = doc.querySelector('.block.b28 .line.line2:first-of-type input:first-of-type');
+            if (weaponNameEl && weaponNameEl.value.trim()){
+                 weaponNameFromSheet = weaponNameEl.value.trim().toLowerCase();
+            } else {
+                throw new Error("Parsing failed: Could not find any weapon in the 'Attacks' list or description.");
+            }
+        }
         
         const weaponKey = Object.keys(WEAPONS).find(key => 
             WEAPONS[key].name.toLowerCase() === weaponNameFromSheet
         );
         
         character.weapon = weaponKey || 'club'; // Default to a club if not found
-        
-        // Check for NaN hp
-        if (isNaN(character.hp)) {
-            throw new Error("Parsing failed: HP is not a valid number.");
-        }
 
         return character;
     } catch(e) {
         console.error(e);
-        // Update the UI to show this more specific error
         parseError.textContent = e.message; 
         return null;
     }
 }
+
 
 async function initializeGameStateAsDM() {
     const dummyRef = doc(db, `artifacts/${appId}/public/data/npcs`, 'training-dummy');
