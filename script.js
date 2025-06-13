@@ -162,6 +162,7 @@ async function createOrUpdatePlayer() {
             hp: 20, // Default HP for manual creation
             level: 1, // Default level
             stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, // Default stats
+            currency: { gp: 0, sp: 0, cp: 0 }, // Default currency
             initiative: 0, 
             isOnline: true, 
             isDM: isDmCheckbox.checked, 
@@ -402,6 +403,24 @@ function createPlayerCard(playerData) {
             <span><b>CHA:</b> ${playerData.stats.cha}</span>
         </div>
     ` : '';
+
+    let currencyHtml;
+    const currency = playerData.currency || { gp: 0, sp: 0, cp: 0 };
+    if (isCurrentUser) {
+        currencyHtml = `
+            <div class="grid grid-cols-3 gap-x-2 text-xs text-center">
+                <div><label class="font-bold text-amber-400">GP</label><input type="number" class="w-full text-center bg-slate-800 rounded-md" data-currency="gp" value="${currency.gp}"></div>
+                <div><label class="font-bold text-slate-400">SP</label><input type="number" class="w-full text-center bg-slate-800 rounded-md" data-currency="sp" value="${currency.sp}"></div>
+                <div><label class="font-bold text-yellow-600">CP</label><input type="number" class="w-full text-center bg-slate-800 rounded-md" data-currency="cp" value="${currency.cp}"></div>
+            </div>`;
+    } else {
+        currencyHtml = `
+            <div class="grid grid-cols-3 gap-x-2 text-xs text-center p-2 bg-slate-900/50 rounded-md">
+                <span><b>GP:</b> ${currency.gp}</span>
+                <span><b>SP:</b> ${currency.sp}</span>
+                <span><b>CP:</b> ${currency.cp}</span>
+            </div>`;
+    }
     
     card.innerHTML = `
         <div class="flex justify-between items-start">
@@ -416,6 +435,7 @@ function createPlayerCard(playerData) {
         ${weaponControlHtml}
         <div class="flex items-center justify-between"><label class="font-bold">HP:</label><div class="flex items-center gap-2"><button data-action="hp-down" class="bg-red-700 h-8 w-8 rounded-full">-</button><span class="text-xl w-12 text-center">${playerData.hp}</span><button data-action="hp-up" class="bg-green-700 h-8 w-8 rounded-full">+</button></div></div>
         <div class="flex items-center justify-between"><label class="font-bold">Initiative:</label><input type="number" value="${playerData.initiative}" class="w-20 bg-slate-800 border border-slate-600 rounded-md py-1 px-2 text-center"></div>
+        ${currencyHtml}
         <div class="flex gap-2 mt-2">
             ${isCurrentUser ? `<button class="inventory-btn w-full bg-slate-600 hover:bg-amber-700 text-white font-bold py-1 rounded-md text-sm">Inventory</button>` : ''}
             ${showRemoveButton ? `<button data-remove-id="${playerData.id}" class="remove-player-btn w-full bg-red-800 hover:bg-red-900 text-xs py-1 rounded-md">Remove</button>` : ''}
@@ -425,9 +445,16 @@ function createPlayerCard(playerData) {
     if (isCurrentUser) {
         card.querySelector('[data-action="hp-down"]').addEventListener('click', () => updatePlayerStat(playerData.id, 'hp', playerData.hp - 1));
         card.querySelector('[data-action="hp-up"]').addEventListener('click', () => updatePlayerStat(playerData.id, 'hp', playerData.hp + 1));
-        card.querySelector('input[type="number"]').addEventListener('change', (e) => updatePlayerStat(playerData.id, 'initiative', parseInt(e.target.value, 10) || 0));
+        card.querySelector('input[type="number"][value="' + playerData.initiative + '"]').addEventListener('change', (e) => updatePlayerStat(playerData.id, 'initiative', parseInt(e.target.value, 10) || 0));
         card.querySelector('[data-weapon-select]').addEventListener('change', (e) => updatePlayerStat(playerData.id, 'weapon', e.target.value));
         card.querySelector('.inventory-btn').addEventListener('click', openInventory);
+        card.querySelectorAll('[data-currency]').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const currencyType = e.target.dataset.currency;
+                const value = parseInt(e.target.value, 10) || 0;
+                updatePlayerStat(playerData.id, `currency.${currencyType}`, value);
+            });
+        });
     } else {
         card.querySelectorAll('button:not(.remove-player-btn), input, select').forEach(el => el.disabled = true);
     }
@@ -541,6 +568,11 @@ function parseAndStoreCharacter(xmlDoc) {
         stats: {
             str: getInt('str'), dex: getInt('dex'), con: con,
             int: getInt('int'), wis: getInt('wis'), cha: getInt('cha'),
+        },
+        currency: {
+            gp: getInt('gp'),
+            sp: getInt('sp'),
+            cp: getInt('cp'),
         },
         inventory: getVal('itemX')?.split(',') || []
     };
