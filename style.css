@@ -20,6 +20,7 @@ body {
 .enemy-card {
     background-color: #4a2d34;
     border: 1px solid #8c3a4a;
+    cursor: crosshair; /* Indicate it's attackable */
 }
 /* Modal styles */
 .modal-overlay {
@@ -189,4 +190,3 @@ body {
     0% { opacity: 1; transform: translate(-50%, -50%) scale(0); }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(2.5); }
 }
-

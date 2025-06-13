@@ -215,12 +215,13 @@ function playAnimation(targetId, animationType) {
     const card = document.getElementById(`npc-${targetId}`);
     if (!card) return;
 
-    const overlay = card.querySelector('.animation-overlay');
-    if (!overlay) return;
+    let overlay = card.querySelector('.animation-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
     
-    // Clear previous animations and clone to reset
-    const newOverlay = overlay.cloneNode(true);
-    overlay.parentNode.replaceChild(newOverlay, overlay);
+    overlay = document.createElement('div');
+    overlay.className = 'animation-overlay';
 
     const effectDiv = document.createElement('div');
     
@@ -234,13 +235,15 @@ function playAnimation(targetId, animationType) {
         default: effectDiv.className = 'effect'; break; // for others
     }
 
-    newOverlay.classList.add(`animate-${animationType}`);
-    newOverlay.appendChild(effectDiv);
+    overlay.classList.add(`animate-${animationType}`);
+    overlay.appendChild(effectDiv);
+    card.appendChild(overlay);
 
     effectDiv.addEventListener('animationend', () => {
-        newOverlay.remove();
+        overlay.remove();
     }, { once: true });
 }
+
 
 function rollDamage(damageString) {
     if (!/^\d+d\d+$/.test(damageString) && !/^\d+$/.test(damageString)) return 0;
@@ -253,7 +256,6 @@ function rollDamage(damageString) {
     }
     return total;
 }
-
 
 async function updatePlayerStat(playerId, stat, value) {
     const playerRef = doc(db, `artifacts/${appId}/public/data/players`, playerId);
@@ -318,17 +320,21 @@ function setupDiceRollListener() {
 }
 
 function renderPlayers() {
-    playersList.innerHTML = players.size === 0 
-        ? `<p class="text-slate-400 italic text-center">No adventurers have joined...</p>`
-        : '';
-    if (players.size > 0) players.forEach(playerData => playersList.appendChild(createPlayerCard(playerData)));
+    playersList.innerHTML = '';
+    if (players.size === 0) {
+         playersList.innerHTML = `<p class="text-slate-400 italic text-center">No adventurers have joined...</p>`;
+    } else {
+         players.forEach(playerData => playersList.appendChild(createPlayerCard(playerData)));
+    }
 }
 
 function renderNpcs() {
-    enemiesList.innerHTML = npcs.size === 0 
-        ? `<p class="text-slate-400 italic text-center">No enemies present.</p>`
-        : '';
-    if(npcs.size > 0) npcs.forEach(npcData => enemiesList.appendChild(createNpcCard(npcData)));
+    enemiesList.innerHTML = '';
+    if (npcs.size === 0) {
+        enemiesList.innerHTML = `<p class="text-slate-400 italic text-center">No enemies present.</p>`;
+    } else {
+        npcs.forEach(npcData => enemiesList.appendChild(createNpcCard(npcData)));
+    }
 }
 
 function createPlayerCard(playerData) {
@@ -339,6 +345,23 @@ function createPlayerCard(playerData) {
     const showRemoveButton = isDMView && !isCurrentUser;
     const weaponName = WEAPONS[playerData.weapon]?.name || 'Unarmed';
     
+    let weaponControlHtml;
+    if (isCurrentUser) {
+        let optionsHtml = '';
+        for (const [key, weapon] of Object.entries(WEAPONS)) {
+            optionsHtml += `<option value="${key}" ${playerData.weapon === key ? 'selected' : ''}>${weapon.name}</option>`;
+        }
+        weaponControlHtml = `
+            <div class="flex items-center justify-between text-sm">
+                <label class="font-bold">Weapon:</label>
+                <select data-weapon-select class="w-40 bg-slate-800 border border-slate-600 rounded-md py-1 px-2 text-sm">
+                    ${optionsHtml}
+                </select>
+            </div>`;
+    } else {
+        weaponControlHtml = `<div class="text-sm"><span class="font-bold">Weapon:</span> ${weaponName}</div>`;
+    }
+    
     card.innerHTML = `
         <div class="flex justify-between items-start">
             <h3 class="text-2xl font-fantasy text-amber-200">${playerData.name}</h3>
@@ -348,7 +371,7 @@ function createPlayerCard(playerData) {
             </div>
         </div>
         <p class="text-slate-300 italic text-sm flex-grow">${playerData.description || '...'}</p>
-        <div class="text-sm"><span class="font-bold">Weapon:</span> ${weaponName}</div>
+        ${weaponControlHtml}
         <div class="flex items-center justify-between"><label class="font-bold">HP:</label><div class="flex items-center gap-2"><button data-action="hp-down" class="bg-red-700 h-8 w-8 rounded-full">-</button><span class="text-xl w-12 text-center">${playerData.hp}</span><button data-action="hp-up" class="bg-green-700 h-8 w-8 rounded-full">+</button></div></div>
         <div class="flex items-center justify-between"><label class="font-bold">Initiative:</label><input type="number" value="${playerData.initiative}" class="w-20 bg-slate-800 border border-slate-600 rounded-md py-1 px-2 text-center"></div>
         ${showRemoveButton ? `<button data-remove-id="${playerData.id}" class="remove-player-btn mt-2 w-full bg-red-800 hover:bg-red-900 text-xs py-1 rounded-md">Remove</button>` : ''}`;
@@ -357,6 +380,7 @@ function createPlayerCard(playerData) {
         card.querySelector('[data-action="hp-down"]').addEventListener('click', () => updatePlayerStat(playerData.id, 'hp', playerData.hp - 1));
         card.querySelector('[data-action="hp-up"]').addEventListener('click', () => updatePlayerStat(playerData.id, 'hp', playerData.hp + 1));
         card.querySelector('input[type="number"]').addEventListener('change', (e) => updatePlayerStat(playerData.id, 'initiative', parseInt(e.target.value, 10) || 0));
+        card.querySelector('[data-weapon-select]').addEventListener('change', (e) => updatePlayerStat(playerData.id, 'weapon', e.target.value));
     } else {
         card.querySelectorAll('button:not(.remove-player-btn), input').forEach(el => el.disabled = true);
     }
@@ -371,15 +395,19 @@ function createNpcCard(npcData) {
     const showRemoveButton = isDMView && npcData.isRemovable;
 
     card.innerHTML = `
-        <div class="animation-overlay"></div>
         <div class="flex justify-between items-start">
             <h3 class="text-2xl font-fantasy text-red-300">${npcData.name}</h3>
             ${showRemoveButton ? `<button data-remove-id="${npcData.id}" class="remove-npc-btn bg-red-900 hover:bg-red-800 text-white font-bold h-6 w-6 rounded-full flex items-center justify-center text-sm p-1">X</button>` : ''}
         </div>
         <div class="flex items-center justify-between"><label class="font-bold">HP:</label><div class="flex items-center gap-2"><button data-action="hp-down" class="bg-red-800 h-8 w-8 rounded-full">-</button><span class="text-xl w-12 text-center">${npcData.hp}</span><button data-action="hp-up" class="bg-green-800 h-8 w-8 rounded-full">+</button></div></div>
-        <button data-attack-id="${npcData.id}" class="attack-btn mt-2 w-full bg-slate-600 hover:bg-red-700 text-white font-bold py-1 rounded-md transition">Attack</button>
     `;
     
+    card.addEventListener('click', (event) => {
+        // Prevent attack if a button on the card was clicked
+        if (event.target.closest('button')) return;
+        attackNpc(npcData.id);
+    });
+
     card.querySelectorAll('[data-action="hp-down"], [data-action="hp-up"]').forEach(btn => {
         if (!isDMView) btn.disabled = true;
         else {
@@ -421,9 +449,7 @@ createNpcButton.addEventListener('click', createNpc);
 document.body.addEventListener('click', (event) => {
     if (event.target.matches('.remove-player-btn')) { removePlayer(event.target.dataset.removeId); }
     if (event.target.matches('.remove-npc-btn')) { removeNpc(event.target.dataset.removeId); }
-    if (event.target.matches('.attack-btn')) { attackNpc(event.target.dataset.attackId); }
 });
 
 initializeFirebase();
 populateWeapons();
-
