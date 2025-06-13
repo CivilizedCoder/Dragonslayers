@@ -129,28 +129,45 @@ function parseCharacterSheet(htmlString) {
     const character = {};
     
     try {
-        character.name = doc.querySelector('.block.b2 .line1 input').value;
-        character.class = doc.querySelector('.block.b3 .line1 input[style*="width:40%"]').value;
-        character.background = doc.querySelector('.block.b3 .line1 input[style*="width:25%"]').value;
-        character.hp = parseInt(doc.querySelector('.block.b24 .line1 input').value, 10);
+        const nameEl = doc.querySelector('.block.b2 .line1 input');
+        if (!nameEl) throw new Error("Parsing failed: Could not find the 'Character Name' input field.");
+        character.name = nameEl.value;
 
-        // Find the first weapon in the attacks list
-        const weaponNameFromSheet = doc.querySelector('.block.b28 .line.line2:first-of-type input:first-of-type').value.trim().toLowerCase();
+        const classEl = doc.querySelector('.block.b3 .line1 input[style*="width:40%"]');
+        if (!classEl) throw new Error("Parsing failed: Could not find the 'Class & Level' input field.");
+        character.class = classEl.value;
+
+        const backgroundEl = doc.querySelector('.block.b3 .line1 input[style*="width:25%"]');
+        if (!backgroundEl) throw new Error("Parsing failed: Could not find the 'Background' input field.");
+        character.background = backgroundEl.value;
         
-        // Find the corresponding weapon key in our WEAPONS object
+        const hpEl = doc.querySelector('.block.b24 .line1 input');
+        if (!hpEl) throw new Error("Parsing failed: Could not find the 'Hit Point Maximum' input field.");
+        character.hp = parseInt(hpEl.value, 10);
+
+        const weaponNameEl = doc.querySelector('.block.b28 .line.line2:first-of-type input:first-of-type');
+        if (!weaponNameEl) throw new Error("Parsing failed: Could not find the first weapon in the 'Attacks' list.");
+        const weaponNameFromSheet = weaponNameEl.value.trim().toLowerCase();
+        
         const weaponKey = Object.keys(WEAPONS).find(key => 
             WEAPONS[key].name.toLowerCase() === weaponNameFromSheet
         );
         
         character.weapon = weaponKey || 'club'; // Default to a club if not found
         
+        // Check for NaN hp
+        if (isNaN(character.hp)) {
+            throw new Error("Parsing failed: HP is not a valid number.");
+        }
+
         return character;
     } catch(e) {
-        console.error("Could not parse character sheet.", e);
+        console.error(e);
+        // Update the UI to show this more specific error
+        parseError.textContent = e.message; 
         return null;
     }
 }
-
 
 async function initializeGameStateAsDM() {
     const dummyRef = doc(db, `artifacts/${appId}/public/data/npcs`, 'training-dummy');
@@ -253,10 +270,7 @@ function playAnimation(targetId, animationType) {
     const card = document.getElementById(`npc-${targetId}`);
     if (!card) return;
 
-    let overlay = card.querySelector('.animation-overlay');
-    if (overlay) overlay.remove();
-    
-    overlay = document.createElement('div');
+    const overlay = document.createElement('div');
     overlay.className = 'animation-overlay';
 
     const effectDiv = document.createElement('div');
@@ -275,7 +289,9 @@ function playAnimation(targetId, animationType) {
     overlay.appendChild(effectDiv);
     card.appendChild(overlay);
 
-    effectDiv.addEventListener('animationend', () => overlay.remove(), { once: true });
+    effectDiv.addEventListener('animationend', () => {
+        overlay.remove();
+    }, { once: true });
 }
 
 function rollDamage(damageString) {
