@@ -29,6 +29,10 @@
             transform: translateY(-5px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
         }
+        .enemy-card {
+            background-color: #4a2d34;
+            border: 1px solid #8c3a4a;
+        }
         /* Modal styles */
         .modal-overlay {
             position: fixed;
@@ -92,28 +96,38 @@
 
     <!-- Main content area -->
     <div class="container mx-auto p-4 md:p-8">
-        <header class="text-center mb-8">
+        <header class="text-center mb-8 relative">
             <h1 class="text-5xl md:text-6xl font-fantasy text-amber-300">D&D Party Tracker</h1>
             <p class="text-slate-400">Track your party's status in real-time.</p>
+            <button id="leave-game-button" class="hidden absolute top-0 right-0 bg-slate-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Leave Game</button>
         </header>
 
-        <main class="flex flex-col md:flex-row gap-8">
+        <main class="flex flex-col lg:flex-row gap-8">
             
-            <!-- Left Column: Allies -->
-            <aside class="w-full md:w-1/2 lg:w-1/3">
-                <h2 class="text-3xl font-fantasy text-center mb-4 text-amber-300">Allies</h2>
-                <div id="players-list" class="space-y-4">
-                    <!-- Player cards will be inserted here by JavaScript -->
-                </div>
-            </aside>
+            <!-- Left Column: Character Lists -->
+            <div class="w-full lg:w-1/3 flex flex-col gap-8">
+                <!-- Allies -->
+                <aside>
+                    <h2 class="text-3xl font-fantasy text-center mb-4 text-amber-300">Allies</h2>
+                    <div id="players-list" class="space-y-4">
+                        <!-- Player cards will be inserted here by JavaScript -->
+                    </div>
+                </aside>
+                <!-- Enemies -->
+                <aside>
+                    <h2 class="text-3xl font-fantasy text-center mb-4 text-red-400">Enemies</h2>
+                    <div id="enemies-list" class="space-y-4">
+                        <!-- Enemy cards will be inserted here -->
+                    </div>
+                </aside>
+            </div>
 
             <!-- Right Column: Tools -->
-            <section class="w-full md:w-1/2 lg:w-2/3">
+            <section class="w-full lg:w-2/3">
                 <!-- Dice Roller Section -->
                 <div id="dice-roller" class="p-6 rounded-lg card w-full mx-auto hidden">
                     <h2 class="text-3xl font-fantasy text-center mb-4 text-amber-300">Roll the Bones</h2>
                     <div class="flex justify-center items-start gap-8 flex-col sm:flex-row">
-                        <!-- Left side: Dice controls -->
                         <div class="flex-grow w-full sm:w-auto">
                             <div id="dice-display" class="relative h-28 w-28 mx-auto mb-4 flex items-center justify-center border-2 border-dashed border-slate-500 rounded-lg bg-slate-800/50">
                                 <span id="dice-result" class="text-5xl font-bold text-white transition-transform duration-500 ease-out"></span>
@@ -128,12 +142,9 @@
                                 <button data-dice="100" class="dice-btn w-12 h-12 bg-slate-600 hover:bg-amber-700 font-bold rounded-md">d100</button>
                             </div>
                         </div>
-                        <!-- Right side: Dice Log -->
                         <div class="w-full sm:w-1/2">
                              <h3 class="text-lg font-bold text-slate-300 mb-2 text-center">Roll History</h3>
-                            <div id="dice-log" class="bg-slate-800 rounded-lg p-3 h-48 overflow-y-auto space-y-2">
-                                <!-- Log entries will go here -->
-                            </div>
+                            <div id="dice-log" class="bg-slate-800 rounded-lg p-3 h-48 overflow-y-auto space-y-2"></div>
                         </div>
                     </div>
                 </div>
@@ -145,9 +156,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc, deleteDoc, serverTimestamp, query, orderBy, limit, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc, deleteDoc, serverTimestamp, query, orderBy, limit, addDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- FIREBASE CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyCwDMBpviL0MbuPEbFyjNgHQ3ldxpKw4hk",
             authDomain: "dragonslayers.firebaseapp.com",
@@ -157,27 +167,26 @@
             appId: "1:379070321916:web:048b29164a949b1a63f379",
             measurementId: "G-889DXBRY9M"
         };
-        
         const appId = 'dnd-tracker-dragonslayers';
-
-        // --- APPLICATION STATE ---
-        let app, auth, db, userId, localPlayer, playersUnsubscribe, diceRollsUnsubscribe;
+        let app, auth, db, userId, localPlayer;
+        let playersUnsubscribe, diceRollsUnsubscribe, npcsUnsubscribe;
         const players = new Map();
+        const npcs = new Map();
 
-        // --- UI ELEMENTS ---
         const characterModal = document.getElementById('character-modal');
         const joinButton = document.getElementById('join-button');
         const nameInput = document.getElementById('name');
         const descriptionInput = document.getElementById('description');
         const isDmCheckbox = document.getElementById('is-dm');
-        const playersList = document.getElementById('players-list'); // Changed from playersGrid
+        const playersList = document.getElementById('players-list');
+        const enemiesList = document.getElementById('enemies-list');
         const authInfo = document.getElementById('auth-info');
         const diceRollerSection = document.getElementById('dice-roller');
         const diceButtons = document.querySelectorAll('.dice-btn');
         const diceResultEl = document.getElementById('dice-result');
         const diceLogEl = document.getElementById('dice-log');
+        const leaveGameButton = document.getElementById('leave-game-button');
 
-        // --- INITIALIZATION ---
         function initializeFirebase() {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
@@ -186,47 +195,49 @@
             onAuthStateChanged(auth, user => {
                 if (user) {
                     userId = user.uid;
-                    authInfo.innerHTML = `<p class="break-all">Your User ID: <span class="font-mono text-amber-300">${userId}</span></p>`;
+                    authInfo.innerHTML = `<p class="break-all">Your ID: <span class="font-mono text-amber-300">${userId}</span></p>`;
                     setupPlayerListener();
                     setupDiceRollListener();
+                    setupNpcListener();
                 } else {
-                    userId = null;
-                    localPlayer = null;
-                    if(playersUnsubscribe) playersUnsubscribe();
-                    if(diceRollsUnsubscribe) diceRollsUnsubscribe();
+                    userId = null; localPlayer = null;
+                    if (playersUnsubscribe) playersUnsubscribe();
+                    if (diceRollsUnsubscribe) diceRollsUnsubscribe();
+                    if (npcsUnsubscribe) npcsUnsubscribe();
+                    characterModal.classList.remove('hidden');
+                    leaveGameButton.classList.add('hidden');
                 }
             });
 
             signInAnonymously(auth).catch(error => console.error("Anonymous sign-in failed:", error));
         }
-
-        // --- FIREBASE & REAL-TIME LOGIC ---
-        async function createOrUpdatePlayer() {
-            if (!userId || !nameInput.value) {
-                console.error("Player name is required.");
-                return;
+        
+        async function initializeGameStateAsDM() {
+            const dummyRef = doc(db, `artifacts/${appId}/public/data/npcs`, 'training-dummy');
+            const dummySnap = await getDoc(dummyRef);
+            if (!dummySnap.exists()) {
+                await setDoc(dummyRef, { name: "Training Dummy", hp: 100, maxHp: 100, id: "training-dummy" });
             }
+        }
 
+        async function createOrUpdatePlayer() {
+            if (!userId || !nameInput.value) { console.error("Player name is required."); return; }
+            const isDM = isDmCheckbox.checked;
             const playerRef = doc(db, `artifacts/${appId}/public/data/players`, userId);
             const playerData = {
-                name: nameInput.value,
-                description: descriptionInput.value,
-                hp: 20,
-                initiative: 0,
-                isOnline: true,
-                isDM: isDmCheckbox.checked,
-                id: userId
+                name: nameInput.value, description: descriptionInput.value,
+                hp: 20, initiative: 0, isOnline: true, isDM: isDM, id: userId
             };
 
             try {
                 await setDoc(playerRef, playerData, { merge: true });
                 localPlayer = playerData;
                 characterModal.classList.add('hidden');
+                leaveGameButton.classList.remove('hidden');
                 diceRollerSection.classList.remove('hidden');
+                if (isDM) { await initializeGameStateAsDM(); }
                 setupBeforeUnloadListener();
-            } catch (error) {
-                console.error("Error writing document: ", error);
-            }
+            } catch (error) { console.error("Error writing document: ", error); }
         }
 
         function setupPlayerListener() {
@@ -234,112 +245,118 @@
             playersUnsubscribe = onSnapshot(playersCollectionRef, (snapshot) => {
                 snapshot.docChanges().forEach((change) => {
                     const playerData = change.doc.data();
-                    if(playerData.id === userId) {
-                        localPlayer = playerData; // Keep local player data fresh
-                    }
-
+                    if(playerData.id === userId) localPlayer = playerData;
                     if (change.type === "added" || change.type === "modified") {
-                        if (playerData.isOnline) {
-                            players.set(playerData.id, playerData);
-                        } else {
-                            players.delete(playerData.id); // Remove if not online
-                        }
+                        if (playerData.isOnline) players.set(playerData.id, playerData);
+                        else players.delete(playerData.id);
                     }
-                    if (change.type === "removed") {
-                        players.delete(playerData.id);
-                    }
+                    if (change.type === "removed") players.delete(playerData.id);
                 });
                 renderPlayers();
             });
         }
         
+        function setupNpcListener() {
+            const npcsCollectionRef = collection(db, `artifacts/${appId}/public/data/npcs`);
+            npcsUnsubscribe = onSnapshot(npcsCollectionRef, (snapshot) => {
+                 snapshot.docChanges().forEach((change) => {
+                    const npcData = change.doc.data();
+                    if (change.type === "added" || change.type === "modified") {
+                        npcs.set(npcData.id, npcData);
+                    }
+                    if (change.type === "removed") {
+                        npcs.delete(npcData.id);
+                    }
+                });
+                renderNpcs();
+            });
+        }
+        
         async function updatePlayerStat(playerId, stat, value) {
             const playerRef = doc(db, `artifacts/${appId}/public/data/players`, playerId);
-            try {
-                await updateDoc(playerRef, { [stat]: value });
-            } catch (error) {
-                console.error(`Error updating ${stat}:`, error);
+            await updateDoc(playerRef, { [stat]: value });
+        }
+        
+        async function updateNpcStat(npcId, stat, value) {
+            const npcRef = doc(db, `artifacts/${appId}/public/data/npcs`, npcId);
+            await updateDoc(npcRef, { [stat]: value });
+            if (stat === 'hp' && value <= 0) {
+                setTimeout(() => {
+                    const targetNpc = npcs.get(npcId);
+                    if (targetNpc) {
+                         updateDoc(npcRef, { hp: targetNpc.maxHp });
+                    }
+                }, 5000); // 5 second respawn timer
             }
         }
 
         async function removePlayer(playerIdToRemove) {
-            if (!localPlayer || !localPlayer.isDM) {
-                console.error("Only the DM can remove players.");
-                return;
-            }
-            if (playerIdToRemove === userId) {
-                console.error("The DM cannot remove themselves.");
-                return;
-            }
-
+            if (!localPlayer?.isDM || playerIdToRemove === userId) return;
             const playerRef = doc(db, `artifacts/${appId}/public/data/players`, playerIdToRemove);
-            try {
-                await deleteDoc(playerRef);
-            } catch (error) {
-                console.error(`Failed to remove player ${playerIdToRemove}:`, error);
-            }
+            await deleteDoc(playerRef);
+        }
+
+        async function leaveGame() {
+            if (!userId) return;
+            await updatePlayerStat(userId, 'isOnline', false);
+            localPlayer = null;
+            players.clear();
+            npcs.clear();
+            characterModal.classList.remove('hidden');
+            leaveGameButton.classList.add('hidden');
+            diceRollerSection.classList.add('hidden');
         }
         
         function setupBeforeUnloadListener() {
-            window.addEventListener('beforeunload', async () => {
-                if (!userId) return;
-                const playerRef = doc(db, `artifacts/${appId}/public/data/players`, userId);
-                await updateDoc(playerRef, { isOnline: false });
+            window.addEventListener('beforeunload', () => {
+                if (userId && localPlayer && localPlayer.isOnline) {
+                    updatePlayerStat(userId, 'isOnline', false);
+                }
             });
         }
 
-        // --- DICE ROLLER LOGIC ---
         async function rollDice(sides) {
             if (!localPlayer) return;
             const result = Math.floor(Math.random() * sides) + 1;
-            const rollData = {
-                playerName: localPlayer.name,
-                sides: sides,
-                result: result,
-                timestamp: serverTimestamp()
-            };
-            
             animateDiceRoll(result);
-
-            try {
-                const rollsCollectionRef = collection(db, `artifacts/${appId}/public/data/dice-rolls`);
-                await addDoc(rollsCollectionRef, rollData);
-            } catch (error) {
-                console.error("Error saving dice roll:", error);
-            }
+            const rollsCollectionRef = collection(db, `artifacts/${appId}/public/data/dice-rolls`);
+            await addDoc(rollsCollectionRef, {
+                playerName: localPlayer.name, sides: sides, result: result, timestamp: serverTimestamp()
+            });
         }
 
         function setupDiceRollListener() {
             const rollsCollectionRef = collection(db, `artifacts/${appId}/public/data/dice-rolls`);
             const q = query(rollsCollectionRef, orderBy("timestamp", "desc"), limit(15));
-            
             diceRollsUnsubscribe = onSnapshot(q, (snapshot) => {
-                const rolls = [];
-                snapshot.forEach(doc => rolls.push(doc.data()));
+                const rolls = snapshot.docs.map(doc => doc.data());
                 updateDiceLog(rolls);
             });
         }
         
-        // --- UI RENDERING ---
         function renderPlayers() {
-            playersList.innerHTML = ''; // Changed from playersGrid
+            playersList.innerHTML = '';
             if (players.size === 0) {
                  playersList.innerHTML = `<p class="text-slate-400 italic text-center">No adventurers have joined...</p>`;
             } else {
-                 players.forEach(playerData => {
-                    const card = createPlayerCard(playerData);
-                    playersList.appendChild(card);
-                });
+                 players.forEach(playerData => playersList.appendChild(createPlayerCard(playerData)));
+            }
+        }
+
+        function renderNpcs() {
+            enemiesList.innerHTML = '';
+            if (npcs.size === 0) {
+                enemiesList.innerHTML = `<p class="text-slate-400 italic text-center">No enemies present.</p>`;
+            } else {
+                npcs.forEach(npcData => enemiesList.appendChild(createNpcCard(npcData)));
             }
         }
 
         function createPlayerCard(playerData) {
             const isCurrentUser = playerData.id === userId;
-            const isDMView = localPlayer && localPlayer.isDM;
+            const isDMView = localPlayer?.isDM;
             const card = document.createElement('div');
             card.className = `card rounded-lg p-4 flex flex-col space-y-3 shadow-lg ${isCurrentUser ? 'border-amber-400' : ''}`;
-            card.id = `player-${playerData.id}`;
-            
             const showRemoveButton = isDMView && !isCurrentUser;
             
             card.innerHTML = `
@@ -350,28 +367,37 @@
                         ${isCurrentUser ? '<span class="text-xs font-bold text-amber-300 bg-amber-800 px-2 py-1 rounded-full">YOU</span>' : ''}
                     </div>
                 </div>
-                <p class="text-slate-300 italic text-sm flex-grow">${playerData.description || 'A mysterious adventurer...'}</p>
-                <div class="flex items-center justify-between">
-                    <label class="font-bold text-lg">HP:</label>
-                    <div class="flex items-center gap-2">
-                        <button data-action="hp-down" class="bg-red-700 hover:bg-red-800 text-white font-bold w-8 h-8 rounded-full transition">-</button>
-                        <span class="text-xl font-bold w-12 text-center">${playerData.hp}</span>
-                        <button data-action="hp-up" class="bg-green-700 hover:bg-green-800 text-white font-bold w-8 h-8 rounded-full transition">+</button>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between">
-                    <label for="init-${playerData.id}" class="font-bold text-lg">Initiative:</label>
-                    <input type="number" id="init-${playerData.id}" value="${playerData.initiative}" class="w-20 bg-slate-800 border border-slate-600 rounded-md py-1 px-2 text-center text-xl">
-                </div>
-                ${showRemoveButton ? `<button data-remove-id="${playerData.id}" class="remove-btn mt-2 w-full bg-red-800 hover:bg-red-900 text-white text-xs font-bold py-1 px-2 rounded-md transition">Remove from Party</button>` : ''}
-            `;
+                <p class="text-slate-300 italic text-sm flex-grow">${playerData.description || '...'}</p>
+                <div class="flex items-center justify-between"><label class="font-bold">HP:</label><div class="flex items-center gap-2"><button data-action="hp-down" class="bg-red-700 h-8 w-8 rounded-full">-</button><span class="text-xl w-12 text-center">${playerData.hp}</span><button data-action="hp-up" class="bg-green-700 h-8 w-8 rounded-full">+</button></div></div>
+                <div class="flex items-center justify-between"><label class="font-bold">Initiative:</label><input type="number" value="${playerData.initiative}" class="w-20 bg-slate-800 border border-slate-600 rounded-md py-1 px-2 text-center"></div>
+                ${showRemoveButton ? `<button data-remove-id="${playerData.id}" class="remove-btn mt-2 w-full bg-red-800 hover:bg-red-900 text-xs py-1 rounded-md">Remove</button>` : ''}`;
 
             if (isCurrentUser) {
                 card.querySelector('[data-action="hp-down"]').addEventListener('click', () => updatePlayerStat(playerData.id, 'hp', playerData.hp - 1));
                 card.querySelector('[data-action="hp-up"]').addEventListener('click', () => updatePlayerStat(playerData.id, 'hp', playerData.hp + 1));
-                card.querySelector(`#init-${playerData.id}`).addEventListener('change', (e) => updatePlayerStat(playerData.id, 'initiative', parseInt(e.target.value, 10) || 0));
+                card.querySelector('input[type="number"]').addEventListener('change', (e) => updatePlayerStat(playerData.id, 'initiative', parseInt(e.target.value, 10) || 0));
             } else {
                 card.querySelectorAll('button:not(.remove-btn), input').forEach(el => el.disabled = true);
+            }
+            return card;
+        }
+
+        function createNpcCard(npcData) {
+            const isDMView = localPlayer?.isDM;
+            const card = document.createElement('div');
+            card.className = 'card enemy-card rounded-lg p-4 flex flex-col space-y-3 shadow-lg';
+            card.innerHTML = `
+                <h3 class="text-2xl font-fantasy text-red-300">${npcData.name}</h3>
+                <div class="flex items-center justify-between"><label class="font-bold">HP:</label><div class="flex items-center gap-2"><button data-action="hp-down" class="bg-red-800 h-8 w-8 rounded-full">-</button><span class="text-xl w-12 text-center">${npcData.hp}</span><button data-action="hp-up" class="bg-green-800 h-8 w-8 rounded-full">+</button></div></div>
+            `;
+            const hpDownBtn = card.querySelector('[data-action="hp-down"]');
+            const hpUpBtn = card.querySelector('[data-action="hp-up"]');
+            if(isDMView) {
+                hpDownBtn.addEventListener('click', () => updateNpcStat(npcData.id, 'hp', npcData.hp - 1));
+                hpUpBtn.addEventListener('click', () => updateNpcStat(npcData.id, 'hp', npcData.hp + 1));
+            } else {
+                 hpDownBtn.disabled = true;
+                 hpUpBtn.disabled = true;
             }
             return card;
         }
@@ -379,46 +405,26 @@
         function animateDiceRoll(result) {
             diceResultEl.textContent = result;
             diceResultEl.classList.add('rolling');
-            diceResultEl.addEventListener('animationend', () => {
-                diceResultEl.classList.remove('rolling');
-            }, { once: true });
+            diceResultEl.addEventListener('animationend', () => diceResultEl.classList.remove('rolling'), { once: true });
         }
 
         function updateDiceLog(rolls) {
-            diceLogEl.innerHTML = '';
-            rolls.forEach(roll => {
-                const logEntry = document.createElement('div');
-                logEntry.className = 'text-sm text-slate-300';
-                logEntry.innerHTML = `
+            diceLogEl.innerHTML = rolls.map(roll => `
+                <div class="text-sm text-slate-300">
                     <span class="font-bold text-amber-300">${roll.playerName}</span> rolled a 
                     <span class="font-bold text-white">${roll.result}</span> on a 
                     <span class="font-mono text-xs">d${roll.sides}</span>
-                `;
-                diceLogEl.appendChild(logEntry);
-            });
+                </div>
+            `).join('');
         }
 
-        // --- EVENT LISTENERS ---
         joinButton.addEventListener('click', createOrUpdatePlayer);
-        
-        diceButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const sides = parseInt(button.dataset.dice, 10);
-                rollDice(sides);
-            });
-        });
-
-        // Use event delegation for dynamically created remove buttons
-        playersList.addEventListener('click', (event) => { // Changed from playersGrid
-            if (event.target.matches('.remove-btn')) {
-                const idToRemove = event.target.dataset.removeId;
-                if (idToRemove) {
-                    removePlayer(idToRemove);
-                }
-            }
+        leaveGameButton.addEventListener('click', leaveGame);
+        diceButtons.forEach(button => button.addEventListener('click', () => rollDice(parseInt(button.dataset.dice, 10))));
+        playersList.addEventListener('click', (event) => {
+            if (event.target.matches('.remove-btn')) { removePlayer(event.target.dataset.removeId); }
         });
         
-        // --- START THE APP ---
         initializeFirebase();
     </script>
 </body>
