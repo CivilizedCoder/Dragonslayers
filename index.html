@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D&D Initiative Tracker</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for a fantasy look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* A dark, fantasy-friendly background */
+            color: #e2e8f0;
+        }
+        .font-fantasy {
+            font-family: 'MedievalSharp', cursive;
+        }
+        .card {
+            background-color: #2d3748;
+            border: 1px solid #4a5568;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+        }
+        /* Simple modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        .modal-content {
+            background: #2d3748;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            border: 1px solid #4a5568;
+            width: 90%;
+            max-width: 500px;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Modal for character creation -->
+    <div id="character-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-3xl font-fantasy mb-4 text-center text-amber-300">Create Your Adventurer</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-slate-300">Character Name</label>
+                    <input type="text" id="name" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                </div>
+                <div>
+                    <label for="description" class="block text-sm font-medium text-slate-300">Brief Description</label>
+                    <textarea id="description" rows="3" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500"></textarea>
+                </div>
+                <button id="join-button" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                    Join the Adventure
+                </button>
+            </div>
+             <div id="auth-info" class="mt-4 text-center text-xs text-slate-400">
+                <p>Your User ID will appear here after joining.</p>
+                <p>Share it with your friends to join the same party!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main content area -->
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-5xl md:text-6xl font-fantasy text-amber-300">D&D Party Tracker</h1>
+            <p class="text-slate-400">Track your party's status in real-time.</p>
+        </header>
+
+        <!-- Player grid -->
+        <div id="players-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- Player cards will be inserted here by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- FIREBASE CONFIGURATION ---
+        // Your web app's Firebase configuration from your project
+        const firebaseConfig = {
+            apiKey: "AIzaSyCwDMBpviL0MbuPEbFyjNgHQ3ldxpKw4hk",
+            authDomain: "dragonslayers.firebaseapp.com",
+            projectId: "dragonslayers",
+            storageBucket: "dragonslayers.appspot.com",
+            messagingSenderId: "379070321916",
+            appId: "1:379070321916:web:048b29164a949b1a63f379",
+            measurementId: "G-889DXBRY9M"
+        };
+        
+        const appId = 'dnd-tracker-dragonslayers'; // A unique ID for this app's data
+
+        // --- APPLICATION STATE ---
+        let app, auth, db, userId, playersUnsubscribe;
+        const players = new Map(); // Use a Map to easily manage player data
+
+        // --- UI ELEMENTS ---
+        const characterModal = document.getElementById('character-modal');
+        const joinButton = document.getElementById('join-button');
+        const nameInput = document.getElementById('name');
+        const descriptionInput = document.getElementById('description');
+        const playersGrid = document.getElementById('players-grid');
+        const authInfo = document.getElementById('auth-info');
+
+        // --- INITIALIZATION ---
+        function initializeFirebase() {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            onAuthStateChanged(auth, user => {
+                if (user) {
+                    // User is signed in.
+                    userId = user.uid;
+                    console.log("Authenticated with User ID:", userId);
+                    authInfo.innerHTML = `<p class="break-all">Your User ID: <span class="font-mono text-amber-300">${userId}</span></p>`;
+
+                    // Now that we have a user, we can set up the player and listen for others
+                    setupPlayerListener();
+                } else {
+                    // User is signed out.
+                    console.log("User is not authenticated.");
+                    userId = null;
+                    if(playersUnsubscribe) playersUnsubscribe(); // Stop listening if logged out
+                }
+            });
+
+            // Sign in the user anonymously when the app loads
+            signInAnonymously(auth).catch(error => {
+                console.error("Anonymous sign-in failed:", error);
+                alert("Could not connect to the session. Please check your Firebase setup and security rules.");
+            });
+        }
+
+        // --- FIREBASE & REAL-TIME LOGIC ---
+
+        // Function to create or update the player in Firestore
+        async function createOrUpdatePlayer() {
+            if (!userId || !nameInput.value) {
+                alert("Please enter a character name.");
+                return;
+            }
+
+            const playerRef = doc(db, `artifacts/${appId}/public/data/players`, userId);
+
+            const playerData = {
+                name: nameInput.value,
+                description: descriptionInput.value,
+                hp: 20, // Default HP
+                initiative: 0, // Default initiative
+                isOnline: true,
+                id: userId // Store the ID for easy reference
+            };
+
+            try {
+                await setDoc(playerRef, playerData, { merge: true });
+                console.log("Player data saved to Firestore.");
+                characterModal.classList.add('hidden'); // Hide modal after joining
+                setupBeforeUnloadListener(); // Set up the listener to handle disconnects
+            } catch (error) {
+                console.error("Error writing document: ", error);
+                alert("Failed to save character. Check console for details.");
+            }
+        }
+
+        // Listen for changes in the players collection
+        function setupPlayerListener() {
+            const playersCollectionRef = collection(db, `artifacts/${appId}/public/data/players`);
+            playersUnsubscribe = onSnapshot(playersCollectionRef, (snapshot) => {
+                const remotePlayers = new Set();
+                snapshot.forEach((doc) => {
+                    const playerData = doc.data();
+                    if(playerData.isOnline){
+                        remotePlayers.add(playerData.id);
+                        if (!players.has(playerData.id)) {
+                             // New player joined
+                             console.log("Player joined:", playerData.name);
+                        }
+                        // Add or update player in our local map
+                        players.set(playerData.id, playerData);
+                    }
+                });
+
+                // Remove players who are no longer online
+                players.forEach((playerData, id) => {
+                    if (!remotePlayers.has(id)) {
+                        console.log("Player left:", playerData.name);
+                        players.delete(id);
+                    }
+                });
+
+                renderPlayers();
+            });
+        }
+        
+        // Function to update a player's stats in Firestore
+        async function updatePlayerStat(playerId, stat, value) {
+            const playerRef = doc(db, `artifacts/${appId}/public/data/players`, playerId);
+            try {
+                await updateDoc(playerRef, { [stat]: value });
+            } catch (error) {
+                console.error(`Error updating ${stat}:`, error);
+            }
+        }
+        
+        // Handle user disconnecting (closing tab/browser)
+        function setupBeforeUnloadListener() {
+            window.addEventListener('beforeunload', async (event) => {
+                if (!userId) return;
+                const playerRef = doc(db, `artifacts/${appId}/public/data/players`, userId);
+                // We use updateDoc to ensure we don't overwrite if the doc was deleted
+                 await updateDoc(playerRef, { isOnline: false });
+            });
+        }
+
+
+        // --- UI RENDERING ---
+
+        // Render all player cards to the grid
+        function renderPlayers() {
+            playersGrid.innerHTML = ''; // Clear the grid
+            if(players.size === 0) {
+                 playersGrid.innerHTML = `<p class="text-slate-400 italic col-span-full text-center">No adventurers have joined the party yet...</p>`;
+            } else {
+                 players.forEach(playerData => {
+                    const card = createPlayerCard(playerData);
+                    playersGrid.appendChild(card);
+                });
+            }
+        }
+
+        // Create a single player card element
+        function createPlayerCard(playerData) {
+            const isCurrentUser = playerData.id === userId;
+            const card = document.createElement('div');
+            card.className = `card rounded-lg p-4 flex flex-col space-y-3 shadow-lg ${isCurrentUser ? 'border-amber-400' : ''}`;
+            card.id = `player-${playerData.id}`;
+            
+            // Inner HTML for the card
+            card.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <h3 class="text-2xl font-fantasy text-amber-200">${playerData.name}</h3>
+                    ${isCurrentUser ? '<span class="text-xs font-bold text-amber-300 bg-amber-800 px-2 py-1 rounded-full">YOU</span>' : ''}
+                </div>
+                <p class="text-slate-300 italic text-sm">${playerData.description || 'A mysterious adventurer...'}</p>
+                
+                <!-- HP Section -->
+                <div class="flex items-center justify-between">
+                    <label class="font-bold text-lg">HP:</label>
+                    <div class="flex items-center gap-2">
+                        <button data-action="hp-down" class="bg-red-700 hover:bg-red-800 text-white font-bold w-8 h-8 rounded-full transition">-</button>
+                        <span class="text-xl font-bold w-12 text-center">${playerData.hp}</span>
+                        <button data-action="hp-up" class="bg-green-700 hover:bg-green-800 text-white font-bold w-8 h-8 rounded-full transition">+</button>
+                    </div>
+                </div>
+
+                <!-- Initiative Section -->
+                <div class="flex items-center justify-between">
+                    <label for="init-${playerData.id}" class="font-bold text-lg">Initiative:</label>
+                    <input type="number" id="init-${playerData.id}" value="${playerData.initiative}" class="w-20 bg-slate-800 border border-slate-600 rounded-md py-1 px-2 text-center text-xl">
+                </div>
+            `;
+
+            // Event listeners for the card's controls
+            if (isCurrentUser) {
+                const hpDownBtn = card.querySelector('[data-action="hp-down"]');
+                const hpUpBtn = card.querySelector('[data-action="hp-up"]');
+                const initiativeInput = card.querySelector(`#init-${playerData.id}`);
+
+                hpDownBtn.addEventListener('click', () => {
+                    const newHp = playerData.hp - 1;
+                    updatePlayerStat(playerData.id, 'hp', newHp);
+                });
+
+                hpUpBtn.addEventListener('click', () => {
+                    const newHp = playerData.hp + 1;
+                    updatePlayerStat(playerData.id, 'hp', newHp);
+                });
+                
+                // Use 'change' event for initiative to avoid too many writes
+                initiativeInput.addEventListener('change', (e) => {
+                    const newInitiative = parseInt(e.target.value, 10) || 0;
+                    updatePlayerStat(playerData.id, 'initiative', newInitiative);
+                });
+            } else {
+                // Disable controls for other players
+                card.querySelectorAll('button, input').forEach(el => el.disabled = true);
+            }
+
+            return card;
+        }
+
+        // --- EVENT LISTENERS ---
+        joinButton.addEventListener('click', createOrUpdatePlayer);
+        
+        // --- START THE APP ---
+        initializeFirebase();
+
+    </script>
+</body>
+</html>
