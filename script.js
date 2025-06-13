@@ -68,10 +68,12 @@ let app, auth, db, userId, localPlayer;
 let playersUnsubscribe, diceRollsUnsubscribe, npcsUnsubscribe;
 const players = new Map();
 const npcs = new Map();
+let importedCharacterData = null; // To hold parsed XML data
 
 // UI ELEMENTS
 const characterModal = document.getElementById('character-modal');
 const npcModal = document.getElementById('npc-modal');
+const inventoryModal = document.getElementById('inventory-modal');
 const joinButton = document.getElementById('join-button');
 const nameInput = document.getElementById('name');
 const weaponSelect = document.getElementById('weapon');
@@ -90,6 +92,12 @@ const createNpcButton = document.getElementById('create-npc-button');
 const cancelNpcButton = document.getElementById('cancel-npc-button');
 const npcNameInput = document.getElementById('npc-name');
 const npcHpInput = document.getElementById('npc-hp');
+const closeInventoryButton = document.getElementById('close-inventory-button');
+const inventoryList = document.getElementById('inventory-list');
+const addInventoryItemButton = document.getElementById('add-inventory-item-button');
+const inventoryItemInput = document.getElementById('inventory-item-input');
+const xmlUploadInput = document.getElementById('xml-upload');
+const xmlStatus = document.getElementById('xml-status');
 
 
 function initializeFirebase() {
@@ -112,6 +120,7 @@ function initializeFirebase() {
             characterModal.classList.remove('hidden');
             leaveGameButton.classList.add('hidden');
             addNpcButton.classList.add('hidden');
+            inventoryModal.classList.add('hidden');
         }
     });
 
@@ -127,27 +136,48 @@ async function initializeGameStateAsDM() {
 }
 
 async function createOrUpdatePlayer() {
-    if (!userId || !nameInput.value) { console.error("Player name is required."); return; }
-    const isDM = isDmCheckbox.checked;
-    const playerRef = doc(db, `artifacts/${appId}/public/data/players`, userId);
-    const playerData = {
-        name: nameInput.value, 
-        description: descriptionInput.value,
-        weapon: weaponSelect.value,
-        hp: 20, 
-        initiative: 0, 
-        isOnline: true, 
-        isDM: isDM, 
-        id: userId
-    };
+    if (!userId) return;
+    
+    let playerData;
 
+    if (importedCharacterData) {
+        // Use data from the imported XML file
+        playerData = {
+            ...importedCharacterData,
+            description: descriptionInput.value, // Allow overwriting description
+            weapon: weaponSelect.value, // Use selected weapon
+            isDM: isDmCheckbox.checked,
+            isOnline: true,
+            id: userId,
+        };
+        importedCharacterData = null; // Clear imported data after use
+        xmlStatus.textContent = '';
+    } else {
+        // Create player from form inputs
+        if (!nameInput.value) { console.error("Player name is required."); return; }
+        playerData = {
+            name: nameInput.value, 
+            description: descriptionInput.value,
+            weapon: weaponSelect.value,
+            hp: 20, // Default HP for manual creation
+            level: 1, // Default level
+            stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, // Default stats
+            initiative: 0, 
+            isOnline: true, 
+            isDM: isDmCheckbox.checked, 
+            id: userId,
+            inventory: []
+        };
+    }
+
+    const playerRef = doc(db, `artifacts/${appId}/public/data/players`, userId);
     try {
         await setDoc(playerRef, playerData, { merge: true });
         localPlayer = playerData;
         characterModal.classList.add('hidden');
         leaveGameButton.classList.remove('hidden');
         diceRollerSection.classList.remove('hidden');
-        if (isDM) { 
+        if (playerData.isDM) { 
             addNpcButton.classList.remove('hidden');
             await initializeGameStateAsDM(); 
         }
@@ -160,7 +190,12 @@ function setupPlayerListener() {
     playersUnsubscribe = onSnapshot(playersCollectionRef, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
             const playerData = change.doc.data();
-            if(playerData.id === userId) localPlayer = playerData;
+            if(playerData.id === userId) {
+                localPlayer = playerData;
+                if (!inventoryModal.classList.contains('hidden')) {
+                    renderInventory();
+                }
+            }
             
             if (change.type === "added" || change.type === "modified") {
                 if (playerData.isOnline) players.set(playerData.id, playerData);
@@ -216,9 +251,7 @@ function playAnimation(targetId, animationType) {
     if (!card) return;
 
     let overlay = card.querySelector('.animation-overlay');
-    if (overlay) {
-        overlay.remove();
-    }
+    if (overlay) overlay.remove();
     
     overlay = document.createElement('div');
     overlay.className = 'animation-overlay';
@@ -232,18 +265,15 @@ function playAnimation(targetId, animationType) {
         case 'fire': effectDiv.className = 'fire-burst'; break;
         case 'cold': effectDiv.className = 'frost'; break;
         case 'lightning': effectDiv.className = 'bolt'; break;
-        default: effectDiv.className = 'effect'; break; // for others
+        default: effectDiv.className = 'effect'; break;
     }
 
     overlay.classList.add(`animate-${animationType}`);
     overlay.appendChild(effectDiv);
     card.appendChild(overlay);
 
-    effectDiv.addEventListener('animationend', () => {
-        overlay.remove();
-    }, { once: true });
+    effectDiv.addEventListener('animationend', () => overlay.remove(), { once: true });
 }
-
 
 function rollDamage(damageString) {
     if (!/^\d+d\d+$/.test(damageString) && !/^\d+$/.test(damageString)) return 0;
@@ -361,6 +391,17 @@ function createPlayerCard(playerData) {
     } else {
         weaponControlHtml = `<div class="text-sm"><span class="font-bold">Weapon:</span> ${weaponName}</div>`;
     }
+
+    const statsHtml = playerData.stats ? `
+        <div class="grid grid-cols-3 gap-x-2 gap-y-1 text-xs text-center p-2 bg-slate-900/50 rounded-md">
+            <span><b>STR:</b> ${playerData.stats.str}</span>
+            <span><b>DEX:</b> ${playerData.stats.dex}</span>
+            <span><b>CON:</b> ${playerData.stats.con}</span>
+            <span><b>INT:</b> ${playerData.stats.int}</span>
+            <span><b>WIS:</b> ${playerData.stats.wis}</span>
+            <span><b>CHA:</b> ${playerData.stats.cha}</span>
+        </div>
+    ` : '';
     
     card.innerHTML = `
         <div class="flex justify-between items-start">
@@ -371,18 +412,24 @@ function createPlayerCard(playerData) {
             </div>
         </div>
         <p class="text-slate-300 italic text-sm flex-grow">${playerData.description || '...'}</p>
+        ${statsHtml}
         ${weaponControlHtml}
         <div class="flex items-center justify-between"><label class="font-bold">HP:</label><div class="flex items-center gap-2"><button data-action="hp-down" class="bg-red-700 h-8 w-8 rounded-full">-</button><span class="text-xl w-12 text-center">${playerData.hp}</span><button data-action="hp-up" class="bg-green-700 h-8 w-8 rounded-full">+</button></div></div>
         <div class="flex items-center justify-between"><label class="font-bold">Initiative:</label><input type="number" value="${playerData.initiative}" class="w-20 bg-slate-800 border border-slate-600 rounded-md py-1 px-2 text-center"></div>
-        ${showRemoveButton ? `<button data-remove-id="${playerData.id}" class="remove-player-btn mt-2 w-full bg-red-800 hover:bg-red-900 text-xs py-1 rounded-md">Remove</button>` : ''}`;
+        <div class="flex gap-2 mt-2">
+            ${isCurrentUser ? `<button class="inventory-btn w-full bg-slate-600 hover:bg-amber-700 text-white font-bold py-1 rounded-md text-sm">Inventory</button>` : ''}
+            ${showRemoveButton ? `<button data-remove-id="${playerData.id}" class="remove-player-btn w-full bg-red-800 hover:bg-red-900 text-xs py-1 rounded-md">Remove</button>` : ''}
+        </div>
+        `;
 
     if (isCurrentUser) {
         card.querySelector('[data-action="hp-down"]').addEventListener('click', () => updatePlayerStat(playerData.id, 'hp', playerData.hp - 1));
         card.querySelector('[data-action="hp-up"]').addEventListener('click', () => updatePlayerStat(playerData.id, 'hp', playerData.hp + 1));
         card.querySelector('input[type="number"]').addEventListener('change', (e) => updatePlayerStat(playerData.id, 'initiative', parseInt(e.target.value, 10) || 0));
         card.querySelector('[data-weapon-select]').addEventListener('change', (e) => updatePlayerStat(playerData.id, 'weapon', e.target.value));
+        card.querySelector('.inventory-btn').addEventListener('click', openInventory);
     } else {
-        card.querySelectorAll('button:not(.remove-player-btn), input').forEach(el => el.disabled = true);
+        card.querySelectorAll('button:not(.remove-player-btn), input, select').forEach(el => el.disabled = true);
     }
     return card;
 }
@@ -403,7 +450,6 @@ function createNpcCard(npcData) {
     `;
     
     card.addEventListener('click', (event) => {
-        // Prevent attack if a button on the card was clicked
         if (event.target.closest('button')) return;
         attackNpc(npcData.id);
     });
@@ -437,14 +483,147 @@ function populateWeapons() {
     }
 }
 
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const xmlText = e.target.result;
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "application/xml");
+            
+            const errorNode = xmlDoc.querySelector("parsererror");
+            if (errorNode) {
+                console.error("Error parsing XML:", errorNode);
+                xmlStatus.textContent = "Error: Invalid XML file.";
+                return;
+            }
+
+            parseAndStoreCharacter(xmlDoc);
+        } catch (error) {
+            console.error("Could not process file.", error);
+            xmlStatus.textContent = "Error processing file.";
+        }
+    };
+    reader.readAsText(file);
+}
+
+function parseAndStoreCharacter(xmlDoc) {
+    const getVal = (tag) => xmlDoc.querySelector(tag)?.textContent || '';
+    const getInt = (tag) => parseInt(getVal(tag), 10) || 0;
+
+    const charName = getVal('name');
+    if (!charName) {
+        xmlStatus.textContent = "Error: Character name not found.";
+        return;
+    }
+
+    const con = getInt('con');
+    const conMod = Math.floor((con - 10) / 2);
+    const level = getInt('level');
+    let totalHp = 0;
+
+    // Sum HP from all levels
+    for (let i = 1; i <= level; i++) {
+        const lvlNode = xmlDoc.querySelector(`lvl[lvl="${i}"]`);
+        if (lvlNode) {
+            const hpBrut = parseInt(lvlNode.querySelector('hp_brut')?.textContent || 0, 10);
+            totalHp += hpBrut + conMod;
+        }
+    }
+
+    importedCharacterData = {
+        name: charName,
+        hp: totalHp,
+        level: level,
+        stats: {
+            str: getInt('str'), dex: getInt('dex'), con: con,
+            int: getInt('int'), wis: getInt('wis'), cha: getInt('cha'),
+        },
+        inventory: getVal('itemX')?.split(',') || []
+    };
+    
+    // Populate form for user convenience
+    nameInput.value = charName;
+    descriptionInput.value = `Level ${level} ${getVal('race')} ${getVal('class')}`;
+    xmlStatus.textContent = `Loaded ${charName}!`;
+}
+
+
+// --- INVENTORY LOGIC ---
+function openInventory() {
+    renderInventory();
+    inventoryModal.classList.remove('hidden');
+}
+
+function closeInventory() {
+    inventoryModal.classList.add('hidden');
+}
+
+function renderInventory() {
+    if (!localPlayer || !localPlayer.inventory) {
+        inventoryList.innerHTML = '<p class="text-slate-400 italic">Your inventory is empty.</p>';
+        return;
+    }
+    inventoryList.innerHTML = '';
+    if (localPlayer.inventory.length === 0) {
+        inventoryList.innerHTML = '<p class="text-slate-400 italic">Your inventory is empty.</p>';
+    } else {
+        localPlayer.inventory.forEach((item, index) => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'flex justify-between items-center bg-slate-700 p-2 rounded';
+            itemEl.innerHTML = `
+                <span>${item}</span>
+                <button data-item-index="${index}" class="remove-item-btn text-red-400 hover:text-red-200 font-bold">X</button>
+            `;
+            inventoryList.appendChild(itemEl);
+        });
+    }
+}
+
+async function addInventoryItem() {
+    const itemName = inventoryItemInput.value.trim();
+    if (!itemName || !localPlayer) return;
+    
+    const currentInventory = localPlayer.inventory || [];
+    const newInventory = [...currentInventory, itemName];
+    await updatePlayerStat(userId, 'inventory', newInventory);
+    inventoryItemInput.value = '';
+}
+
+async function removeInventoryItem(index) {
+    if (!localPlayer || !localPlayer.inventory) return;
+    
+    const currentInventory = localPlayer.inventory;
+    const newInventory = [...currentInventory];
+    newInventory.splice(index, 1);
+    await updatePlayerStat(userId, 'inventory', newInventory);
+}
+
 // EVENT LISTENERS
 joinButton.addEventListener('click', createOrUpdatePlayer);
 leaveGameButton.addEventListener('click', leaveGame);
 diceButtons.forEach(button => button.addEventListener('click', () => rollDice(parseInt(button.dataset.dice, 10))));
+xmlUploadInput.addEventListener('change', handleFileUpload);
 
 addNpcButton.addEventListener('click', () => npcModal.classList.remove('hidden'));
 cancelNpcButton.addEventListener('click', () => npcModal.classList.add('hidden'));
 createNpcButton.addEventListener('click', createNpc);
+
+closeInventoryButton.addEventListener('click', closeInventory);
+addInventoryItemButton.addEventListener('click', addInventoryItem);
+inventoryItemInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addInventoryItem();
+});
+
+inventoryList.addEventListener('click', (event) => {
+    if (event.target.matches('.remove-item-btn')) {
+        const index = parseInt(event.target.dataset.itemIndex, 10);
+        removeInventoryItem(index);
+    }
+});
 
 document.body.addEventListener('click', (event) => {
     if (event.target.matches('.remove-player-btn')) { removePlayer(event.target.dataset.removeId); }

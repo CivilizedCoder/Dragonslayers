@@ -4,18 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>D&D Initiative Tracker</title>
+    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for a fantasy look -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Link to your custom stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="antialiased">
 
+    <!-- Modal for character creation -->
     <div id="character-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 class="text-3xl font-fantasy mb-4 text-center text-amber-300">Create Your Adventurer</h2>
             <div class="space-y-4">
+                <div>
+                    <label for="xml-upload" class="block text-sm font-medium text-slate-300 cursor-pointer text-center bg-slate-600 hover:bg-slate-500 p-2 rounded-md">Import from XML</label>
+                    <input type="file" id="xml-upload" class="hidden" accept=".xml, .txt">
+                    <p id="xml-status" class="text-xs text-center text-green-400 mt-1 h-4"></p>
+                </div>
                 <div>
                     <label for="name" class="block text-sm font-medium text-slate-300">Character Name</label>
                     <input type="text" id="name" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500">
@@ -23,7 +32,8 @@
                  <div>
                     <label for="weapon" class="block text-sm font-medium text-slate-300">Weapon</label>
                     <select id="weapon" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500">
-                        </select>
+                        <!-- Weapon options will be populated by JS -->
+                    </select>
                 </div>
                 <div>
                     <label for="description" class="block text-sm font-medium text-slate-300">Brief Description</label>
@@ -43,6 +53,7 @@
         </div>
     </div>
     
+    <!-- Modal for NPC creation -->
     <div id="npc-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2 class="text-3xl font-fantasy mb-4 text-center text-red-300">Create New Enemy</h2>
@@ -62,7 +73,27 @@
             </div>
         </div>
     </div>
+    
+    <!-- Modal for Player Inventory -->
+    <div id="inventory-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+             <div class="flex justify-between items-center mb-4">
+                 <h2 class="text-3xl font-fantasy text-amber-300">Inventory</h2>
+                 <button id="close-inventory-button" class="bg-red-800 hover:bg-red-700 text-white font-bold h-8 w-8 rounded-full flex items-center justify-center text-2xl">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <div id="inventory-list" class="space-y-2 bg-slate-800 p-3 rounded-md min-h-[10rem] max-h-64 overflow-y-auto">
+                    <!-- Inventory items will be populated here -->
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="inventory-item-input" placeholder="Add new item..." class="flex-grow bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                    <button id="add-inventory-item-button" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg">Add</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- Main content area -->
     <div class="container mx-auto p-4 md:p-8">
         <header class="text-center mb-8 relative">
             <h1 class="text-5xl md:text-6xl font-fantasy text-amber-300">D&D Party Tracker</h1>
@@ -72,13 +103,17 @@
 
         <main class="flex flex-col lg:flex-row gap-8">
             
+            <!-- Left Column: Allies -->
             <aside class="w-full lg:w-1/3">
                 <h2 class="text-3xl font-fantasy text-center mb-4 text-amber-300">Allies</h2>
                 <div id="players-list" class="space-y-4">
-                    </div>
+                    <!-- Player cards will be inserted here -->
+                </div>
             </aside>
 
+            <!-- Middle Column: Tools -->
             <section class="w-full lg:w-1/3">
+                <!-- Dice Roller Section -->
                 <div id="dice-roller" class="p-6 rounded-lg card w-full mx-auto hidden">
                     <h2 class="text-3xl font-fantasy text-center mb-4 text-amber-300">Roll the Bones</h2>
                     <div class="flex flex-col justify-center items-center gap-4">
@@ -104,18 +139,21 @@
                 </div>
             </section>
 
+            <!-- Right Column: Enemies -->
             <aside class="w-full lg:w-1/3">
                 <div class="flex justify-center items-center mb-4">
                     <h2 class="text-3xl font-fantasy text-red-400">Enemies</h2>
                     <button id="add-npc-button" class="hidden ml-4 bg-red-800 hover:bg-red-700 text-white font-bold h-8 w-8 rounded-full flex items-center justify-center text-2xl">+</button>
                 </div>
                 <div id="enemies-list" class="space-y-4">
-                    </div>
+                    <!-- Enemy cards will be inserted here -->
+                </div>
             </aside>
 
         </main>
     </div>
 
+    <!-- Link to your JavaScript file -->
     <script src="script.js" type="module"></script>
 </body>
 </html>
