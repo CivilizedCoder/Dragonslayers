@@ -129,47 +129,82 @@ function parseCharacterSheet(htmlString) {
     const character = {};
     
     try {
-        const nameEl = doc.querySelector('.block.b2 .line1 input');
-        if (!nameEl) throw new Error("Parsing failed: Could not find the 'Character Name' input field.");
-        character.name = nameEl.value;
+        const getval = (selector, attribute = 'value') => {
+            const el = doc.querySelector(selector);
+            if (!el) throw new Error(`Could not find element with selector: ${selector}`);
+            return el[attribute];
+        };
 
-        const classEl = doc.querySelector('.block.b3 .line1 input[style*="width:40%"]');
-        if (!classEl) throw new Error("Parsing failed: Could not find the 'Class & Level' input field.");
-        character.class = classEl.value;
-
-        const backgroundEl = doc.querySelector('.block.b3 .line1 input[style*="width:25%"]');
-        if (!backgroundEl) throw new Error("Parsing failed: Could not find the 'Background' input field.");
-        character.background = backgroundEl.value;
-        
-        const hpEl = doc.querySelector('.block.b24 .line1 input');
-        if (!hpEl) throw new Error("Parsing failed: Could not find the 'Hit Point Maximum' input field.");
-        character.hp = parseInt(hpEl.value, 10);
-        if (isNaN(character.hp)) throw new Error("Parsing failed: HP is not a valid number.");
-
-        let weaponNameFromSheet = '';
-        const attackBox = doc.querySelector('.block.b28 .divedit');
-        if (attackBox) {
-            const firstStrongTag = attackBox.querySelector('strong');
-            if (firstStrongTag && firstStrongTag.textContent.trim()) {
-                weaponNameFromSheet = firstStrongTag.textContent.trim().toLowerCase();
-            }
+        const getdiv = (selector) => {
+             const el = doc.querySelector(selector);
+            if (!el) throw new Error(`Could not find element with selector: ${selector}`);
+            return el.innerHTML;
         }
+
+        character.name = getval('.block.b2 .line1 input');
+        character.class = getval('.block.b3 .line1 input[style*="width:40%"]');
+        character.background = getval('.block.b3 .line1 input[style*="width:25%"]');
+        character.race = getval('.block.b3 .line2 input[style*="width:40%"]');
+        character.alignment = getval('.block.b3 .line2 input[style*="width:25%"]');
         
-        if (!weaponNameFromSheet) {
-            const weaponNameEl = doc.querySelector('.block.b28 .line.line2:first-of-type input:first-of-type');
-            if (weaponNameEl && weaponNameEl.value.trim()){
-                 weaponNameFromSheet = weaponNameEl.value.trim().toLowerCase();
-            } else {
-                throw new Error("Parsing failed: Could not find any weapon in the 'Attacks' list or description.");
+        character.hp = parseInt(getval('.block.b24 .line1 input'), 10);
+        if (isNaN(character.hp)) throw new Error("HP is not a valid number.");
+
+        character.ac = parseInt(getval('.block.b21 input'), 10);
+        character.initiative = getval('.block.b22 input');
+        character.speed = getval('.block.b23 input');
+        character.proficiencyBonus = getval('.block.b14 input');
+        
+        character.abilityScores = {
+            str: getval('.block.b6 .line3 input'),
+            dex: getval('.block.b7:nth-of-type(2) .line3 input'),
+            con: getval('.block.b7:nth-of-type(3) .line3 input'),
+            int: getval('.block.b7:nth-of-type(4) .line3 input'),
+            wis: getval('.block.b7:nth-of-type(5) .line3 input'),
+            cha: getval('.block.b8 .line3 input'),
+        };
+
+        character.skills = [];
+        doc.querySelectorAll('.block.b16 .line').forEach(line => {
+            if (line.querySelector('input[type="checkbox"]:checked')) {
+                const skillName = line.querySelector('.field').textContent.trim();
+                character.skills.push(skillName);
             }
+        });
+
+        character.equipment = getdiv('.block.b31 .divedit');
+        character.coins = {
+            cp: getval('.block.b30 .line:nth-child(1) input'),
+            sp: getval('.block.b30 .line:nth-child(2) input'),
+            ep: getval('.block.b30 .line:nth-child(3) input'),
+            gp: getval('.block.b30 .line:nth-child(4) input'),
+            pp: getval('.block.b30 .line:nth-child(5) input'),
+        }
+
+        character.features = getdiv('.block.b38 .divedit');
+
+        character.spells = { cantrips: [], level1: [] };
+        doc.querySelectorAll('.block.b53 .line.line2 input').forEach(input => {
+            if (input.value) character.spells.cantrips.push(input.value);
+        });
+        doc.querySelectorAll('.block.b54:first-of-type .line.line2 input.textinput').forEach(input => {
+             if (input.value) character.spells.level1.push(input.value);
+        });
+        
+        const attackDesc = getdiv('.block.b28 .line.line3 .divedit');
+        let weaponNameFromSheet = '';
+        const firstStrongTag = doc.querySelector('.block.b28 .divedit strong');
+        if (firstStrongTag) {
+            weaponNameFromSheet = firstStrongTag.textContent.trim().toLowerCase();
+        } else {
+             throw new Error("Could not find a weapon in the attacks description.");
         }
         
         const weaponKey = Object.keys(WEAPONS).find(key => 
             WEAPONS[key].name.toLowerCase() === weaponNameFromSheet
         );
+        character.weapon = weaponKey || 'club';
         
-        character.weapon = weaponKey || 'club'; // Default to a club if not found
-
         return character;
     } catch(e) {
         console.error(e);
@@ -193,17 +228,14 @@ async function createOrUpdatePlayer() {
         return;
     }
     
-    const isDM = false; // Note: You might want a way to determine this, for now, uploaded chars are not DMs
     const playerRef = doc(db, `artifacts/${appId}/public/data/players`, userId);
     const playerData = {
-        name: parsedCharacter.name,
-        description: `${parsedCharacter.class} | ${parsedCharacter.background}`,
-        weapon: parsedCharacter.weapon,
-        hp: parsedCharacter.hp,
-        initiative: 0,
+        id: userId,
         isOnline: true,
-        isDM: isDM,
-        id: userId
+        // All parsed data is now stored in a single 'sheet' object
+        sheet: parsedCharacter,
+        // Keep top-level fields for quick access if needed, like isDM
+        isDM: false // Default to false for uploaded sheets
     };
 
     try {
@@ -212,10 +244,6 @@ async function createOrUpdatePlayer() {
         characterModal.classList.add('hidden');
         leaveGameButton.classList.remove('hidden');
         diceRollerSection.classList.remove('hidden');
-        if (isDM) {
-            addNpcButton.classList.remove('hidden');
-            await initializeGameStateAsDM();
-        }
         setupBeforeUnloadListener();
     } catch (error) { console.error("Error writing document: ", error); }
 }
@@ -264,8 +292,8 @@ async function createNpc() {
 }
 
 async function attackNpc(npcId) {
-    if (!localPlayer || !localPlayer.weapon) return;
-    const weapon = WEAPONS[localPlayer.weapon];
+    if (!localPlayer || !localPlayer.sheet.weapon) return;
+    const weapon = WEAPONS[localPlayer.sheet.weapon];
     const targetNpc = npcs.get(npcId);
     if (!weapon || !targetNpc) return;
 
@@ -316,9 +344,9 @@ function rollDamage(damageString) {
     return total;
 }
 
-async function updatePlayerStat(playerId, stat, value) {
+async function updatePlayerSheet(playerId, sheetData) {
     const playerRef = doc(db, `artifacts/${appId}/public/data/players`, playerId);
-    await updateDoc(playerRef, { [stat]: value });
+    await updateDoc(playerRef, { sheet: sheetData });
 }
 
 async function updateNpcStat(npcId, stat, value) {
@@ -347,14 +375,16 @@ async function removeNpc(npcIdToRemove) {
 
 async function leaveGame() {
     if (!userId) return;
-    await updatePlayerStat(userId, 'isOnline', false);
+    const playerRef = doc(db, `artifacts/${appId}/public/data/players`, userId);
+    await updateDoc(playerRef, { isOnline: false });
     auth.signOut(); 
 }
 
 function setupBeforeUnloadListener() {
     window.addEventListener('beforeunload', () => {
         if (userId && localPlayer?.isOnline) {
-            updatePlayerStat(userId, 'isOnline', false);
+             const playerRef = doc(db, `artifacts/${appId}/public/data/players`, userId);
+             updateDoc(playerRef, { isOnline: false });
         }
     });
 }
@@ -365,7 +395,7 @@ async function rollDice(sides) {
     animateDiceRoll(result);
     const rollsCollectionRef = collection(db, `artifacts/${appId}/public/data/dice-rolls`);
     await addDoc(rollsCollectionRef, {
-        playerName: localPlayer.name, sides: sides, result: result, timestamp: serverTimestamp()
+        playerName: localPlayer.sheet.name, sides: sides, result: result, timestamp: serverTimestamp()
     });
 }
 
@@ -397,52 +427,67 @@ function renderNpcs() {
 }
 
 function createPlayerCard(playerData) {
+    const sheet = playerData.sheet;
     const isCurrentUser = playerData.id === userId;
     const isDMView = localPlayer?.isDM;
     const card = document.createElement('div');
+    card.id = `player-${playerData.id}`;
     card.className = `card rounded-lg p-4 flex flex-col space-y-3 shadow-lg ${isCurrentUser ? 'border-amber-400' : ''}`;
+    
     const showRemoveButton = isDMView && !isCurrentUser;
-    const weaponName = WEAPONS[playerData.weapon]?.name || 'Unarmed';
-    
-    let weaponControlHtml;
-    if (isCurrentUser) {
-        let optionsHtml = '';
-        for (const [key, weapon] of Object.entries(WEAPONS)) {
-            optionsHtml += `<option value="${key}" ${playerData.weapon === key ? 'selected' : ''}>${weapon.name}</option>`;
-        }
-        weaponControlHtml = `
-            <div class="flex items-center justify-between text-sm">
-                <label class="font-bold">Weapon:</label>
-                <select data-weapon-select class="w-40 bg-slate-800 border border-slate-600 rounded-md py-1 px-2 text-sm">
-                    ${optionsHtml}
-                </select>
-            </div>`;
-    } else {
-        weaponControlHtml = `<div class="text-sm"><span class="font-bold">Weapon:</span> ${weaponName}</div>`;
-    }
-    
+    const canViewDetails = isCurrentUser || isDMView;
+    const weaponName = WEAPONS[sheet.weapon]?.name || 'Unarmed';
+
+    const detailsHtml = `
+        <div class="details-panel">
+            <h4>Ability Scores</h4>
+            <div class="details-grid">
+                <span>STR: ${sheet.abilityScores.str}</span>
+                <span>DEX: ${sheet.abilityScores.dex}</span>
+                <span>CON: ${sheet.abilityScores.con}</span>
+                <span>INT: ${sheet.abilityScores.int}</span>
+                <span>WIS: ${sheet.abilityScores.wis}</span>
+                <span>CHA: ${sheet.abilityScores.cha}</span>
+            </div>
+            
+            <h4>Proficient Skills</h4>
+            <ul class="details-list">
+                ${sheet.skills.map(s => `<li>${s}</li>`).join('')}
+            </ul>
+
+            <h4>Spells</h4>
+            <div class="details-block">
+                <p><strong>Cantrips:</strong> ${sheet.spells.cantrips.join(', ')}</p>
+                <p><strong>Level 1:</strong> ${sheet.spells.level1.join(', ')}</p>
+            </div>
+
+            <h4>Features & Traits</h4>
+            <div class="details-block">${sheet.features}</div>
+            
+            <h4>Equipment</h4>
+            <div class="details-block">${sheet.equipment}</div>
+        </div>`;
+
     card.innerHTML = `
         <div class="flex justify-between items-start">
-            <h3 class="text-2xl font-fantasy text-amber-200">${playerData.name}</h3>
+            <h3 class="text-2xl font-fantasy text-amber-200">${sheet.name}</h3>
             <div class="flex items-center gap-2 flex-shrink-0">
                 ${playerData.isDM ? '<span class="text-xs font-bold text-cyan-300 bg-cyan-800 px-2 py-1 rounded-full">DM</span>' : ''}
                 ${isCurrentUser ? '<span class="text-xs font-bold text-amber-300 bg-amber-800 px-2 py-1 rounded-full">YOU</span>' : ''}
             </div>
         </div>
-        <p class="text-slate-300 italic text-sm flex-grow">${playerData.description || '...'}</p>
-        ${weaponControlHtml}
-        <div class="flex items-center justify-between"><label class="font-bold">HP:</label><div class="flex items-center gap-2"><button data-action="hp-down" class="bg-red-700 h-8 w-8 rounded-full">-</button><span class="text-xl w-12 text-center">${playerData.hp}</span><button data-action="hp-up" class="bg-green-700 h-8 w-8 rounded-full">+</button></div></div>
-        <div class="flex items-center justify-between"><label class="font-bold">Initiative:</label><input type="number" value="${playerData.initiative}" class="w-20 bg-slate-800 border border-slate-600 rounded-md py-1 px-2 text-center"></div>
-        ${showRemoveButton ? `<button data-remove-id="${playerData.id}" class="remove-player-btn mt-2 w-full bg-red-800 hover:bg-red-900 text-xs py-1 rounded-md">Remove</button>` : ''}`;
-
-    if (isCurrentUser) {
-        card.querySelector('[data-action="hp-down"]').addEventListener('click', () => updatePlayerStat(playerData.id, 'hp', playerData.hp - 1));
-        card.querySelector('[data-action="hp-up"]').addEventListener('click', () => updatePlayerStat(playerData.id, 'hp', playerData.hp + 1));
-        card.querySelector('input[type="number"]').addEventListener('change', (e) => updatePlayerStat(playerData.id, 'initiative', parseInt(e.target.value, 10) || 0));
-        card.querySelector('[data-weapon-select]').addEventListener('change', (e) => updatePlayerStat(playerData.id, 'weapon', e.target.value));
-    } else {
-        card.querySelectorAll('button:not(.remove-player-btn), input').forEach(el => el.disabled = true);
-    }
+        <p class="text-slate-300 italic text-sm">${sheet.class}</p>
+        <div class="grid grid-cols-3 text-center text-sm">
+            <div><span class="font-bold">HP</span><br>${sheet.hp}</div>
+            <div><span class="font-bold">AC</span><br>${sheet.ac}</div>
+            <div><span class="font-bold">Init</span><br>${sheet.initiative}</div>
+        </div>
+        <div class="text-sm"><span class="font-bold">Weapon:</span> ${weaponName}</div>
+        <button class="details-btn w-full text-xs py-1 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed" ${!canViewDetails ? 'disabled' : ''}>Details</button>
+        ${showRemoveButton ? `<button data-remove-id="${playerData.id}" class="remove-player-btn mt-2 w-full bg-red-800 hover:bg-red-900 text-xs py-1 rounded-md">Remove</button>` : ''}
+        ${canViewDetails ? detailsHtml : ''}
+    `;
+    
     return card;
 }
 
@@ -527,6 +572,12 @@ sheetUploadInput.addEventListener('change', (event) => {
 document.body.addEventListener('click', (event) => {
     if (event.target.matches('.remove-player-btn')) { removePlayer(event.target.dataset.removeId); }
     if (event.target.matches('.remove-npc-btn')) { removeNpc(event.target.dataset.removeId); }
+    if (event.target.matches('.details-btn')) {
+        const detailsPanel = event.target.closest('.card').querySelector('.details-panel');
+        if (detailsPanel) {
+            detailsPanel.classList.toggle('expanded');
+        }
+    }
 });
 
 initializeFirebase();

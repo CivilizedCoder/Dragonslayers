@@ -53,6 +53,34 @@ body {
     animation: roll 0.7s ease-out;
 }
 
+/* Character Sheet Details Panel */
+.details-panel {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease-out;
+    border-top: 1px solid #4a5568;
+    margin-top: 1rem;
+    padding-top: 1rem;
+}
+.details-panel.expanded {
+    max-height: 2000px; /* Large enough to fit content */
+    transition: max-height 0.7s ease-in;
+}
+
+.details-panel h4 {
+    @apply font-bold text-amber-300 font-fantasy text-lg mt-2 mb-1;
+}
+
+.details-grid {
+    @apply grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm;
+}
+.details-list {
+    @apply list-disc list-inside space-y-1 pl-2 text-sm;
+}
+.details-block {
+    @apply bg-slate-800/50 p-2 rounded-md;
+}
+
 /* --- DAMAGE ANIMATIONS --- */
 .animation-overlay {
     position: absolute;
