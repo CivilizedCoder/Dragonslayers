@@ -64,6 +64,14 @@ const WEAPONS = {
     acid_splash: { name: 'Acid Splash', damage: '1d6', type: 'acid' },
 };
 
+// This mapping is an assumption based on common app export formats.
+// You may need to adjust this to match the IDs from your character builder app.
+const WEAPON_ID_MAP = {
+    '15': 'light_crossbow',
+    '32': 'longsword'
+};
+
+
 let app, auth, db, userId, localPlayer;
 let playersUnsubscribe, diceRollsUnsubscribe, npcsUnsubscribe;
 const players = new Map();
@@ -167,7 +175,8 @@ async function createOrUpdatePlayer() {
             isOnline: true, 
             isDM: isDmCheckbox.checked, 
             id: userId,
-            inventory: []
+            inventory: [],
+            availableAttacks: Object.keys(WEAPONS) // Manually created players have all weapons
         };
     }
 
@@ -379,9 +388,14 @@ function createPlayerCard(playerData) {
     let weaponControlHtml;
     if (isCurrentUser) {
         let optionsHtml = '';
-        for (const [key, weapon] of Object.entries(WEAPONS)) {
-            optionsHtml += `<option value="${key}" ${playerData.weapon === key ? 'selected' : ''}>${weapon.name}</option>`;
-        }
+        const attackOptions = playerData.availableAttacks || Object.keys(WEAPONS);
+        attackOptions.forEach(attackKey => {
+            const weapon = WEAPONS[attackKey];
+            if (weapon) {
+                 optionsHtml += `<option value="${attackKey}" ${playerData.weapon === attackKey ? 'selected' : ''}>${weapon.name}</option>`;
+            }
+        });
+
         weaponControlHtml = `
             <div class="flex items-center justify-between text-sm">
                 <label class="font-bold">Weapon:</label>
@@ -561,6 +575,27 @@ function parseAndStoreCharacter(xmlDoc) {
         }
     }
 
+    const availableAttacks = [];
+    // Parse equipped weapons from XML
+    const weaponIds = getVal('weapon').split(',');
+    weaponIds.forEach(id => {
+        if (WEAPON_ID_MAP[id]) {
+            availableAttacks.push(WEAPON_ID_MAP[id]);
+        }
+    });
+
+    // Parse known spells from XML
+    const spellNodes = xmlDoc.querySelectorAll('knownSpell');
+    spellNodes.forEach(node => {
+        const spellName = node.textContent.toLowerCase();
+        for (const [key, weapon] of Object.entries(WEAPONS)) {
+            if (weapon.name.toLowerCase() === spellName) {
+                availableAttacks.push(key);
+                break;
+            }
+        }
+    });
+
     importedCharacterData = {
         name: charName,
         hp: totalHp,
@@ -574,12 +609,25 @@ function parseAndStoreCharacter(xmlDoc) {
             sp: getInt('sp'),
             cp: getInt('cp'),
         },
-        inventory: getVal('itemX')?.split(',') || []
+        inventory: getVal('itemX')?.split(',').filter(item => item) || [],
+        availableAttacks: availableAttacks.length > 0 ? [...new Set(availableAttacks)] : ['club'], // Use a Set to remove duplicates, ensure at least one attack
     };
     
     // Populate form for user convenience
     nameInput.value = charName;
     descriptionInput.value = `Level ${level} ${getVal('race')} ${getVal('class')}`;
+    // Update weapon dropdown with only available attacks
+    weaponSelect.innerHTML = '';
+    importedCharacterData.availableAttacks.forEach(attackKey => {
+        const weapon = WEAPONS[attackKey];
+        if (weapon) {
+            const option = document.createElement('option');
+            option.value = attackKey;
+            option.textContent = weapon.name;
+            weaponSelect.appendChild(option);
+        }
+    });
+
     xmlStatus.textContent = `Loaded ${charName}!`;
 }
 
