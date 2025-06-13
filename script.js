@@ -16,52 +16,52 @@ const appId = 'dnd-tracker-dragonslayers';
 // --- DATA ---
 const WEAPONS = {
     // Simple Melee
-    club: { name: 'Club', damage: '1d4', type: 'bludgeoning' },
-    dagger: { name: 'Dagger', damage: '1d4', type: 'piercing' },
-    greatclub: { name: 'Greatclub', damage: '1d8', type: 'bludgeoning' },
-    handaxe: { name: 'Handaxe', damage: '1d6', type: 'slashing' },
-    javelin: { name: 'Javelin', damage: '1d6', type: 'piercing' },
-    light_hammer: { name: 'Light Hammer', damage: '1d4', type: 'bludgeoning' },
-    mace: { name: 'Mace', damage: '1d6', type: 'bludgeoning' },
-    quarterstaff: { name: 'Quarterstaff', damage: '1d6', type: 'bludgeoning' },
-    sickle: { name: 'Sickle', damage: '1d4', type: 'slashing' },
-    spear: { name: 'Spear', damage: '1d6', type: 'piercing' },
+    club: { name: 'Club', damage: '1d4', type: 'bludgeoning', ability: 'str' },
+    dagger: { name: 'Dagger', damage: '1d4', type: 'piercing', ability: 'fin' },
+    greatclub: { name: 'Greatclub', damage: '1d8', type: 'bludgeoning', ability: 'str' },
+    handaxe: { name: 'Handaxe', damage: '1d6', type: 'slashing', ability: 'str' },
+    javelin: { name: 'Javelin', damage: '1d6', type: 'piercing', ability: 'str' },
+    light_hammer: { name: 'Light Hammer', damage: '1d4', type: 'bludgeoning', ability: 'str' },
+    mace: { name: 'Mace', damage: '1d6', type: 'bludgeoning', ability: 'str' },
+    quarterstaff: { name: 'Quarterstaff', damage: '1d6', type: 'bludgeoning', ability: 'str' },
+    sickle: { name: 'Sickle', damage: '1d4', type: 'slashing', ability: 'str' },
+    spear: { name: 'Spear', damage: '1d6', type: 'piercing', ability: 'str' },
     // Simple Ranged
-    light_crossbow: { name: 'Light Crossbow', damage: '1d8', type: 'piercing' },
-    dart: { name: 'Dart', damage: '1d4', type: 'piercing' },
-    shortbow: { name: 'Shortbow', damage: '1d6', type: 'piercing' },
-    sling: { name: 'Sling', damage: '1d4', type: 'bludgeoning' },
+    light_crossbow: { name: 'Light Crossbow', damage: '1d8', type: 'piercing', ability: 'dex' },
+    dart: { name: 'Dart', damage: '1d4', type: 'piercing', ability: 'fin' },
+    shortbow: { name: 'Shortbow', damage: '1d6', type: 'piercing', ability: 'dex' },
+    sling: { name: 'Sling', damage: '1d4', type: 'bludgeoning', ability: 'dex' },
     // Martial Melee
-    battleaxe: { name: 'Battleaxe', damage: '1d8', type: 'slashing' },
-    flail: { name: 'Flail', damage: '1d8', type: 'bludgeoning' },
-    glaive: { name: 'Glaive', damage: '1d10', type: 'slashing' },
-    greataxe: { name: 'Greataxe', damage: '1d12', type: 'slashing' },
-    greatsword: { name: 'Greatsword', damage: '2d6', type: 'slashing' },
-    halberd: { name: 'Halberd', damage: '1d10', type: 'slashing' },
-    lance: { name: 'Lance', damage: '1d12', type: 'piercing' },
-    longsword: { name: 'Longsword', damage: '1d8', type: 'slashing' },
-    maul: { name: 'Maul', damage: '2d6', type: 'bludgeoning' },
-    morningstar: { name: 'Morningstar', damage: '1d8', type: 'piercing' },
-    pike: { name: 'Pike', damage: '1d10', type: 'piercing' },
-    rapier: { name: 'Rapier', damage: '1d8', type: 'piercing' },
-    scimitar: { name: 'Scimitar', damage: '1d6', type: 'slashing' },
-    shortsword: { name: 'Shortsword', damage: '1d6', type: 'piercing' },
-    trident: { name: 'Trident', damage: '1d6', type: 'piercing' },
-    war_pick: { name: 'War Pick', damage: '1d8', type: 'piercing' },
-    warhammer: { name: 'Warhammer', damage: '1d8', type: 'bludgeoning' },
-    whip: { name: 'Whip', damage: '1d4', type: 'slashing' },
+    battleaxe: { name: 'Battleaxe', damage: '1d8', type: 'slashing', ability: 'str' },
+    flail: { name: 'Flail', damage: '1d8', type: 'bludgeoning', ability: 'str' },
+    glaive: { name: 'Glaive', damage: '1d10', type: 'slashing', ability: 'str' },
+    greataxe: { name: 'Greataxe', damage: '1d12', type: 'slashing', ability: 'str' },
+    greatsword: { name: 'Greatsword', damage: '2d6', type: 'slashing', ability: 'str' },
+    halberd: { name: 'Halberd', damage: '1d10', type: 'slashing', ability: 'str' },
+    lance: { name: 'Lance', damage: '1d12', type: 'piercing', ability: 'str' },
+    longsword: { name: 'Longsword', damage: '1d8', type: 'slashing', ability: 'str' },
+    maul: { name: 'Maul', damage: '2d6', type: 'bludgeoning', ability: 'str' },
+    morningstar: { name: 'Morningstar', damage: '1d8', type: 'piercing', ability: 'str' },
+    pike: { name: 'Pike', damage: '1d10', type: 'piercing', ability: 'str' },
+    rapier: { name: 'Rapier', damage: '1d8', type: 'piercing', ability: 'fin' },
+    scimitar: { name: 'Scimitar', damage: '1d6', type: 'slashing', ability: 'fin' },
+    shortsword: { name: 'Shortsword', damage: '1d6', type: 'piercing', ability: 'fin' },
+    trident: { name: 'Trident', damage: '1d6', type: 'piercing', ability: 'str' },
+    war_pick: { name: 'War Pick', damage: '1d8', type: 'piercing', ability: 'str' },
+    warhammer: { name: 'Warhammer', damage: '1d8', type: 'bludgeoning', ability: 'str' },
+    whip: { name: 'Whip', damage: '1d4', type: 'slashing', ability: 'fin' },
     // Martial Ranged
-    blowgun: { name: 'Blowgun', damage: '1', type: 'piercing' },
-    hand_crossbow: { name: 'Hand Crossbow', damage: '1d6', type: 'piercing' },
-    heavy_crossbow: { name: 'Heavy Crossbow', damage: '1d10', type: 'piercing' },
-    longbow: { name: 'Longbow', damage: '1d8', type: 'piercing' },
-    net: { name: 'Net', damage: '0', type: 'none' },
-    // Cantrips
-    fire_bolt: { name: 'Fire Bolt', damage: '1d10', type: 'fire' },
-    ray_of_frost: { name: 'Ray of Frost', damage: '1d8', type: 'cold' },
-    sacred_flame: { name: 'Sacred Flame', damage: '1d8', type: 'radiant' },
-    eldritch_blast: { name: 'Eldritch Blast', damage: '1d10', type: 'force' },
-    acid_splash: { name: 'Acid Splash', damage: '1d6', type: 'acid' },
+    blowgun: { name: 'Blowgun', damage: '1', type: 'piercing', ability: 'dex' },
+    hand_crossbow: { name: 'Hand Crossbow', damage: '1d6', type: 'piercing', ability: 'dex' },
+    heavy_crossbow: { name: 'Heavy Crossbow', damage: '1d10', type: 'piercing', ability: 'dex' },
+    longbow: { name: 'Longbow', damage: '1d8', type: 'piercing', ability: 'dex' },
+    net: { name: 'Net', damage: '0', type: 'none', ability: 'dex' },
+    // Cantrips (using CHA for Warlocks/Sorcerers)
+    fire_bolt: { name: 'Fire Bolt', damage: '1d10', type: 'fire', ability: 'cha' },
+    ray_of_frost: { name: 'Ray of Frost', damage: '1d8', type: 'cold', ability: 'cha' },
+    sacred_flame: { name: 'Sacred Flame', damage: '1d8', type: 'radiant', ability: 'cha' },
+    eldritch_blast: { name: 'Eldritch Blast', damage: '1d10', type: 'force', ability: 'cha' },
+    acid_splash: { name: 'Acid Splash', damage: '1d6', type: 'acid', ability: 'cha' },
 };
 
 // This mapping is an assumption based on common app export formats.
@@ -244,17 +244,32 @@ async function createNpc() {
 }
 
 async function attackNpc(npcId) {
-    if (!localPlayer || !localPlayer.weapon) return;
+    if (!localPlayer || !localPlayer.weapon || !localPlayer.stats) return;
     const weapon = WEAPONS[localPlayer.weapon];
     const targetNpc = npcs.get(npcId);
     if (!weapon || !targetNpc) return;
 
-    const damage = rollDamage(weapon.damage);
-    const newHp = Math.max(0, targetNpc.hp - damage);
+    const diceDamage = rollDamage(weapon.damage);
+    const modifier = getAbilityModifier(weapon.ability, localPlayer.stats);
+    const totalDamage = Math.max(1, diceDamage + modifier); // Damage is at least 1
+    const newHp = Math.max(0, targetNpc.hp - totalDamage);
     
     await updateNpcStat(npcId, 'hp', newHp);
     playAnimation(npcId, weapon.type);
 }
+
+function getAbilityModifier(ability, stats) {
+    const calcMod = (score) => Math.floor((score - 10) / 2);
+    switch (ability) {
+        case 'str': return calcMod(stats.str);
+        case 'dex': return calcMod(stats.dex);
+        case 'cha': return calcMod(stats.cha);
+        // Add wis, int, con if needed for other spells/features
+        case 'fin': return Math.max(calcMod(stats.str), calcMod(stats.dex));
+        default: return 0;
+    }
+}
+
 
 function playAnimation(targetId, animationType) {
     const card = document.getElementById(`npc-${targetId}`);
