@@ -16,52 +16,54 @@ const appId = 'dnd-tracker-dragonslayers';
 // --- DATA ---
 const WEAPONS = {
     // Simple Melee
-    club: { name: 'Club', damage: '1d4', type: 'bludgeoning' },
-    dagger: { name: 'Dagger', damage: '1d4', type: 'piercing' },
-    greatclub: { name: 'Greatclub', damage: '1d8', type: 'bludgeoning' },
-    handaxe: { name: 'Handaxe', damage: '1d6', type: 'slashing' },
-    javelin: { name: 'Javelin', damage: '1d6', type: 'piercing' },
-    light_hammer: { name: 'Light Hammer', damage: '1d4', type: 'bludgeoning' },
-    mace: { name: 'Mace', damage: '1d6', type: 'bludgeoning' },
-    quarterstaff: { name: 'Quarterstaff', damage: '1d6', type: 'bludgeoning' },
-    sickle: { name: 'Sickle', damage: '1d4', type: 'slashing' },
-    spear: { name: 'Spear', damage: '1d6', type: 'piercing' },
+    club: { name: 'Club', damage: '1d4', type: 'bludgeoning', hands: 1 },
+    dagger: { name: 'Dagger', damage: '1d4', type: 'piercing', hands: 1 },
+    greatclub: { name: 'Greatclub', damage: '1d8', type: 'bludgeoning', hands: 2 },
+    handaxe: { name: 'Handaxe', damage: '1d6', type: 'slashing', hands: 1 },
+    javelin: { name: 'Javelin', damage: '1d6', type: 'piercing', hands: 1 },
+    light_hammer: { name: 'Light Hammer', damage: '1d4', type: 'bludgeoning', hands: 1 },
+    mace: { name: 'Mace', damage: '1d6', type: 'bludgeoning', hands: 1 },
+    quarterstaff: { name: 'Quarterstaff', damage: '1d6', type: 'bludgeoning', hands: 1 },
+    sickle: { name: 'Sickle', damage: '1d4', type: 'slashing', hands: 1 },
+    spear: { name: 'Spear', damage: '1d6', type: 'piercing', hands: 1 },
     // Simple Ranged
-    light_crossbow: { name: 'Light Crossbow', damage: '1d8', type: 'piercing' },
-    dart: { name: 'Dart', damage: '1d4', type: 'piercing' },
-    shortbow: { name: 'Shortbow', damage: '1d6', type: 'piercing' },
-    sling: { name: 'Sling', damage: '1d4', type: 'bludgeoning' },
+    light_crossbow: { name: 'Light Crossbow', damage: '1d8', type: 'piercing', hands: 2 },
+    dart: { name: 'Dart', damage: '1d4', type: 'piercing', hands: 1 },
+    shortbow: { name: 'Shortbow', damage: '1d6', type: 'piercing', hands: 2 },
+    sling: { name: 'Sling', damage: '1d4', type: 'bludgeoning', hands: 1 },
     // Martial Melee
-    battleaxe: { name: 'Battleaxe', damage: '1d8', type: 'slashing' },
-    flail: { name: 'Flail', damage: '1d8', type: 'bludgeoning' },
-    glaive: { name: 'Glaive', damage: '1d10', type: 'slashing' },
-    greataxe: { name: 'Greataxe', damage: '1d12', type: 'slashing' },
-    greatsword: { name: 'Greatsword', damage: '2d6', type: 'slashing' },
-    halberd: { name: 'Halberd', damage: '1d10', type: 'slashing' },
-    lance: { name: 'Lance', damage: '1d12', type: 'piercing' },
-    longsword: { name: 'Longsword', damage: '1d8', type: 'slashing' },
-    maul: { name: 'Maul', damage: '2d6', type: 'bludgeoning' },
-    morningstar: { name: 'Morningstar', damage: '1d8', type: 'piercing' },
-    pike: { name: 'Pike', damage: '1d10', type: 'piercing' },
-    rapier: { name: 'Rapier', damage: '1d8', type: 'piercing' },
-    scimitar: { name: 'Scimitar', damage: '1d6', type: 'slashing' },
-    shortsword: { name: 'Shortsword', damage: '1d6', type: 'piercing' },
-    trident: { name: 'Trident', damage: '1d6', type: 'piercing' },
-    war_pick: { name: 'War Pick', damage: '1d8', type: 'piercing' },
-    warhammer: { name: 'Warhammer', damage: '1d8', type: 'bludgeoning' },
-    whip: { name: 'Whip', damage: '1d4', type: 'slashing' },
+    battleaxe: { name: 'Battleaxe', damage: '1d8', type: 'slashing', hands: 1 },
+    flail: { name: 'Flail', damage: '1d8', type: 'bludgeoning', hands: 1 },
+    glaive: { name: 'Glaive', damage: '1d10', type: 'slashing', hands: 2 },
+    greataxe: { name: 'Greataxe', damage: '1d12', type: 'slashing', hands: 2 },
+    greatsword: { name: 'Greatsword', damage: '2d6', type: 'slashing', hands: 2 },
+    halberd: { name: 'Halberd', damage: '1d10', type: 'slashing', hands: 2 },
+    lance: { name: 'Lance', damage: '1d12', type: 'piercing', hands: 1 },
+    longsword: { name: 'Longsword', damage: '1d8', type: 'slashing', hands: 1 },
+    maul: { name: 'Maul', damage: '2d6', type: 'bludgeoning', hands: 2 },
+    morningstar: { name: 'Morningstar', damage: '1d8', type: 'piercing', hands: 1 },
+    pike: { name: 'Pike', damage: '1d10', type: 'piercing', hands: 2 },
+    rapier: { name: 'Rapier', damage: '1d8', type: 'piercing', hands: 1 },
+    scimitar: { name: 'Scimitar', damage: '1d6', type: 'slashing', hands: 1 },
+    shortsword: { name: 'Shortsword', damage: '1d6', type: 'piercing', hands: 1 },
+    trident: { name: 'Trident', damage: '1d6', type: 'piercing', hands: 1 },
+    war_pick: { name: 'War Pick', damage: '1d8', type: 'piercing', hands: 1 },
+    warhammer: { name: 'Warhammer', damage: '1d8', type: 'bludgeoning', hands: 1 },
+    whip: { name: 'Whip', damage: '1d4', type: 'slashing', hands: 1 },
     // Martial Ranged
-    blowgun: { name: 'Blowgun', damage: '1', type: 'piercing' },
-    hand_crossbow: { name: 'Hand Crossbow', damage: '1d6', type: 'piercing' },
-    heavy_crossbow: { name: 'Heavy Crossbow', damage: '1d10', type: 'piercing' },
-    longbow: { name: 'Longbow', damage: '1d8', type: 'piercing' },
-    net: { name: 'Net', damage: '0', type: 'none' },
+    blowgun: { name: 'Blowgun', damage: '1', type: 'piercing', hands: 1 },
+    hand_crossbow: { name: 'Hand Crossbow', damage: '1d6', type: 'piercing', hands: 1 },
+    heavy_crossbow: { name: 'Heavy Crossbow', damage: '1d10', type: 'piercing', hands: 2 },
+    longbow: { name: 'Longbow', damage: '1d8', type: 'piercing', hands: 2 },
+    net: { name: 'Net', damage: '0', type: 'none', hands: 1 },
     // Cantrips
-    fire_bolt: { name: 'Fire Bolt', damage: '1d10', type: 'fire' },
-    ray_of_frost: { name: 'Ray of Frost', damage: '1d8', type: 'cold' },
-    sacred_flame: { name: 'Sacred Flame', damage: '1d8', type: 'radiant' },
-    eldritch_blast: { name: 'Eldritch Blast', damage: '1d10', type: 'force' },
-    acid_splash: { name: 'Acid Splash', damage: '1d6', type: 'acid' },
+    fire_bolt: { name: 'Fire Bolt', damage: '1d10', type: 'fire', hands: 0 },
+    ray_of_frost: { name: 'Ray of Frost', damage: '1d8', type: 'cold', hands: 0 },
+    sacred_flame: { name: 'Sacred Flame', damage: '1d8', type: 'radiant', hands: 0 },
+    eldritch_blast: { name: 'Eldritch Blast', damage: '1d10', type: 'force', hands: 0 },
+    acid_splash: { name: 'Acid Splash', damage: '1d6', type: 'acid', hands: 0 },
+    // Other
+    shield: { name: 'Shield', type: 'armor', hands: 1, ac: 2 }
 };
 
 let app, auth, db, userId, localPlayer, parsedCharacter;
@@ -172,7 +174,16 @@ function parseCharacterSheet(htmlString) {
             }
         });
 
-        character.equipment = getdiv('.block.b31 .divedit');
+        const equipmentText = getdiv('.block.b31 .divedit');
+        character.equipment = equipmentText;
+        character.inventory = [];
+        Object.keys(WEAPONS).forEach(key => {
+            if (equipmentText.toLowerCase().includes(WEAPONS[key].name.toLowerCase())) {
+                character.inventory.push(key);
+            }
+        });
+
+
         character.coins = {
             cp: getval('.block.b30 .line:nth-child(1) input'),
             sp: getval('.block.b30 .line:nth-child(2) input'),
@@ -191,20 +202,9 @@ function parseCharacterSheet(htmlString) {
              if (input.value) character.spells.level1.push(input.value);
         });
         
-        const attackDesc = getdiv('.block.b28 .line.line3 .divedit');
-        let weaponNameFromSheet = '';
-        const firstStrongTag = doc.querySelector('.block.b28 .divedit strong');
-        if (firstStrongTag) {
-            weaponNameFromSheet = firstStrongTag.textContent.trim().toLowerCase();
-        } else {
-             throw new Error("Could not find a weapon in the attacks description.");
-        }
-        
-        const weaponKey = Object.keys(WEAPONS).find(key => 
-            WEAPONS[key].name.toLowerCase() === weaponNameFromSheet
-        );
-        character.weapon = weaponKey || 'club';
-        
+        character.leftHand = '';
+        character.rightHand = '';
+
         return character;
     } catch(e) {
         console.error(e);
@@ -232,9 +232,7 @@ async function createOrUpdatePlayer() {
     const playerData = {
         id: userId,
         isOnline: true,
-        // All parsed data is now stored in a single 'sheet' object
         sheet: parsedCharacter,
-        // Keep top-level fields for quick access if needed, like isDM
         isDM: false // Default to false for uploaded sheets
     };
 
@@ -292,10 +290,10 @@ async function createNpc() {
 }
 
 async function attackNpc(npcId) {
-    if (!localPlayer || !localPlayer.sheet.weapon) return;
-    const weapon = WEAPONS[localPlayer.sheet.weapon];
+    if (!localPlayer || !localPlayer.sheet.rightHand) return;
+    const weapon = WEAPONS[localPlayer.sheet.rightHand];
     const targetNpc = npcs.get(npcId);
-    if (!weapon || !targetNpc) return;
+    if (!weapon || !targetNpc || weapon.type === 'armor') return;
 
     const damage = rollDamage(weapon.damage);
     const newHp = Math.max(0, targetNpc.hp - damage);
@@ -430,13 +428,27 @@ function createPlayerCard(playerData) {
     const sheet = playerData.sheet;
     const isCurrentUser = playerData.id === userId;
     const isDMView = localPlayer?.isDM;
+    const canEdit = isCurrentUser || isDMView;
+    
     const card = document.createElement('div');
     card.id = `player-${playerData.id}`;
     card.className = `card rounded-lg p-4 flex flex-col space-y-3 shadow-lg ${isCurrentUser ? 'border-amber-400' : ''}`;
     
     const showRemoveButton = isDMView && !isCurrentUser;
-    const canViewDetails = isCurrentUser || isDMView;
-    const weaponName = WEAPONS[sheet.weapon]?.name || 'Unarmed';
+    const weaponName = WEAPONS[sheet.rightHand]?.name || 'Unarmed';
+    let calculatedAc = sheet.ac;
+    if (sheet.leftHand === 'shield') {
+        calculatedAc += 2;
+    }
+    
+    const createSelect = (hand) => {
+        let optionsHtml = '<option value="">- Empty -</option>';
+        sheet.inventory.forEach(itemKey => {
+            const item = WEAPONS[itemKey];
+            optionsHtml += `<option value="${itemKey}" ${sheet[hand] === itemKey ? 'selected' : ''}>${item.name}</option>`;
+        });
+        return `<select data-hand="${hand}" class="editable-field w-full text-sm" ${!canEdit ? 'disabled' : ''}>${optionsHtml}</select>`;
+    }
 
     const detailsHtml = `
         <div class="details-panel">
@@ -466,6 +478,13 @@ function createPlayerCard(playerData) {
             
             <h4>Equipment</h4>
             <div class="details-block">${sheet.equipment}</div>
+
+            <h4>Currency</h4>
+            <div class="details-grid">
+                <label>CP: <input type="number" class="editable-field w-16" data-coin="cp" value="${sheet.coins.cp}" ${!canEdit ? 'disabled' : ''}></label>
+                <label>SP: <input type="number" class="editable-field w-16" data-coin="sp" value="${sheet.coins.sp}" ${!canEdit ? 'disabled' : ''}></label>
+                <label>GP: <input type="number" class="editable-field w-16" data-coin="gp" value="${sheet.coins.gp}" ${!canEdit ? 'disabled' : ''}></label>
+            </div>
         </div>`;
 
     card.innerHTML = `
@@ -478,14 +497,17 @@ function createPlayerCard(playerData) {
         </div>
         <p class="text-slate-300 italic text-sm">${sheet.class}</p>
         <div class="grid grid-cols-3 text-center text-sm">
-            <div><span class="font-bold">HP</span><br>${sheet.hp}</div>
-            <div><span class="font-bold">AC</span><br>${sheet.ac}</div>
-            <div><span class="font-bold">Init</span><br>${sheet.initiative}</div>
+            <div><span class="font-bold">HP</span><br><input type="number" class="editable-field w-16 text-center" data-stat="hp" value="${sheet.hp}" ${!canEdit ? 'disabled' : ''}></div>
+            <div><span class="font-bold">AC</span><br>${calculatedAc}</div>
+            <div><span class="font-bold">Init</span><br><input type="number" class="editable-field w-16 text-center" data-stat="initiative" value="${sheet.initiative}" ${!canEdit ? 'disabled' : ''}></div>
         </div>
-        <div class="text-sm"><span class="font-bold">Weapon:</span> ${weaponName}</div>
-        <button class="details-btn w-full text-xs py-1 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed" ${!canViewDetails ? 'disabled' : ''}>Details</button>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+            <div><label class="font-bold">Left Hand</label>${createSelect('leftHand')}</div>
+            <div><label class="font-bold">Right Hand</label>${createSelect('rightHand')}</div>
+        </div>
+        <button class="details-btn w-full text-xs py-1 rounded bg-slate-600 hover:bg-slate-500" ${!canEdit ? 'disabled' : ''}>Details</button>
         ${showRemoveButton ? `<button data-remove-id="${playerData.id}" class="remove-player-btn mt-2 w-full bg-red-800 hover:bg-red-900 text-xs py-1 rounded-md">Remove</button>` : ''}
-        ${canViewDetails ? detailsHtml : ''}
+        ${canEdit ? detailsHtml : ''}
     `;
     
     return card;
@@ -569,11 +591,51 @@ sheetUploadInput.addEventListener('change', (event) => {
 });
 
 
+document.body.addEventListener('change', (event) => {
+    const target = event.target;
+    const card = target.closest('.card');
+    if (!card) return;
+    
+    const playerId = card.id.replace('player-', '');
+    const player = players.get(playerId);
+    if (!player) return;
+
+    let sheet = { ...player.sheet }; // Create a mutable copy
+
+    if (target.matches('[data-stat]')) {
+        sheet[target.dataset.stat] = parseInt(target.value, 10);
+        updatePlayerSheet(playerId, sheet);
+    }
+
+    if (target.matches('[data-coin]')) {
+        sheet.coins[target.dataset.coin] = parseInt(target.value, 10);
+        updatePlayerSheet(playerId, sheet);
+    }
+    
+    if (target.matches('[data-hand]')) {
+        const hand = target.dataset.hand;
+        const selectedItemKey = target.value;
+        const selectedItem = WEAPONS[selectedItemKey];
+
+        sheet[hand] = selectedItemKey;
+
+        // Two-handed logic
+        if (selectedItem && selectedItem.hands === 2) {
+            sheet.leftHand = selectedItemKey;
+            sheet.rightHand = selectedItemKey;
+        }
+        
+        updatePlayerSheet(playerId, sheet);
+    }
+});
+
+
 document.body.addEventListener('click', (event) => {
-    if (event.target.matches('.remove-player-btn')) { removePlayer(event.target.dataset.removeId); }
-    if (event.target.matches('.remove-npc-btn')) { removeNpc(event.target.dataset.removeId); }
-    if (event.target.matches('.details-btn')) {
-        const detailsPanel = event.target.closest('.card').querySelector('.details-panel');
+    const target = event.target;
+    if (target.matches('.remove-player-btn')) { removePlayer(target.dataset.removeId); }
+    if (target.matches('.remove-npc-btn')) { removeNpc(target.dataset.removeId); }
+    if (target.matches('.details-btn')) {
+        const detailsPanel = target.closest('.card').querySelector('.details-panel');
         if (detailsPanel) {
             detailsPanel.classList.toggle('expanded');
         }
