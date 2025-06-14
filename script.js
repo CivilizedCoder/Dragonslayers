@@ -23,32 +23,32 @@ const WEAPONS = {
     javelin: { name: 'Javelin', damage: '1d6', type: 'piercing', hands: 1 },
     light_hammer: { name: 'Light Hammer', damage: '1d4', type: 'bludgeoning', hands: 1 },
     mace: { name: 'Mace', damage: '1d6', type: 'bludgeoning', hands: 1 },
-    quarterstaff: { name: 'Quarterstaff', damage: '1d6', type: 'bludgeoning', hands: 1 },
+    quarterstaff: { name: 'Quarterstaff', damage: '1d6', type: 'bludgeoning', hands: 1, versatile: '1d8' },
     sickle: { name: 'Sickle', damage: '1d4', type: 'slashing', hands: 1 },
-    spear: { name: 'Spear', damage: '1d6', type: 'piercing', hands: 1 },
+    spear: { name: 'Spear', damage: '1d6', type: 'piercing', hands: 1, versatile: '1d8' },
     // Simple Ranged
     light_crossbow: { name: 'Light Crossbow', damage: '1d8', type: 'piercing', hands: 2 },
     dart: { name: 'Dart', damage: '1d4', type: 'piercing', hands: 1 },
     shortbow: { name: 'Shortbow', damage: '1d6', type: 'piercing', hands: 2 },
     sling: { name: 'Sling', damage: '1d4', type: 'bludgeoning', hands: 1 },
     // Martial Melee
-    battleaxe: { name: 'Battleaxe', damage: '1d8', type: 'slashing', hands: 1 },
+    battleaxe: { name: 'Battleaxe', damage: '1d8', type: 'slashing', hands: 1, versatile: '1d10' },
     flail: { name: 'Flail', damage: '1d8', type: 'bludgeoning', hands: 1 },
     glaive: { name: 'Glaive', damage: '1d10', type: 'slashing', hands: 2 },
     greataxe: { name: 'Greataxe', damage: '1d12', type: 'slashing', hands: 2 },
     greatsword: { name: 'Greatsword', damage: '2d6', type: 'slashing', hands: 2 },
     halberd: { name: 'Halberd', damage: '1d10', type: 'slashing', hands: 2 },
     lance: { name: 'Lance', damage: '1d12', type: 'piercing', hands: 1 },
-    longsword: { name: 'Longsword', damage: '1d8', type: 'slashing', hands: 1 },
+    longsword: { name: 'Longsword', damage: '1d8', type: 'slashing', hands: 1, versatile: '1d10' },
     maul: { name: 'Maul', damage: '2d6', type: 'bludgeoning', hands: 2 },
     morningstar: { name: 'Morningstar', damage: '1d8', type: 'piercing', hands: 1 },
     pike: { name: 'Pike', damage: '1d10', type: 'piercing', hands: 2 },
     rapier: { name: 'Rapier', damage: '1d8', type: 'piercing', hands: 1 },
     scimitar: { name: 'Scimitar', damage: '1d6', type: 'slashing', hands: 1 },
     shortsword: { name: 'Shortsword', damage: '1d6', type: 'piercing', hands: 1 },
-    trident: { name: 'Trident', damage: '1d6', type: 'piercing', hands: 1 },
+    trident: { name: 'Trident', damage: '1d6', type: 'piercing', hands: 1, versatile: '1d8' },
     war_pick: { name: 'War Pick', damage: '1d8', type: 'piercing', hands: 1 },
-    warhammer: { name: 'Warhammer', damage: '1d8', type: 'bludgeoning', hands: 1 },
+    warhammer: { name: 'Warhammer', damage: '1d8', type: 'bludgeoning', hands: 1, versatile: '1d10' },
     whip: { name: 'Whip', damage: '1d4', type: 'slashing', hands: 1 },
     // Martial Ranged
     blowgun: { name: 'Blowgun', damage: '1', type: 'piercing', hands: 1 },
@@ -180,7 +180,8 @@ function parseCharacterSheet(htmlString) {
 
         // Scan equipment text for known items
         Object.keys(WEAPONS).forEach(key => {
-            if (equipmentText.toLowerCase().includes(WEAPONS[key].name.toLowerCase())) {
+            const regex = new RegExp(`\\b${WEAPONS[key].name}\\b`, 'i');
+            if (regex.test(equipmentText)) {
                 inventoryItems.add(key);
             }
         });
@@ -306,11 +307,18 @@ async function createNpc() {
 
 async function attackNpc(npcId) {
     if (!localPlayer || !localPlayer.sheet.rightHand) return;
-    const weapon = WEAPONS[localPlayer.sheet.rightHand];
+    const weaponKey = localPlayer.sheet.rightHand;
+    const weapon = WEAPONS[weaponKey];
     const targetNpc = npcs.get(npcId);
     if (!weapon || !targetNpc || weapon.type === 'armor') return;
 
-    const damage = rollDamage(weapon.damage);
+    let damageDie = weapon.damage;
+    // Check for versatile property and if the other hand is free
+    if (weapon.versatile && !localPlayer.sheet.leftHand) {
+        damageDie = weapon.versatile;
+    }
+
+    const damage = rollDamage(damageDie);
     const newHp = Math.max(0, targetNpc.hp - damage);
     
     await updateNpcStat(npcId, 'hp', newHp);
@@ -464,7 +472,7 @@ function createPlayerCard(playerData) {
                 optionsHtml += `<option value="${itemKey}" ${sheet[hand] === itemKey ? 'selected' : ''}>${item.name}</option>`;
             }
         });
-        return `<select data-hand="${hand}" class="editable-field w-full text-sm" ${!canEdit ? 'disabled' : ''}>${optionsHtml}</select>`;
+        return `<select data-hand="${hand}" class="editable-field w-full text-sm text-white" ${!canEdit ? 'disabled' : ''}>${optionsHtml}</select>`;
     }
 
     const detailsHtml = `
@@ -498,9 +506,9 @@ function createPlayerCard(playerData) {
 
             <h4>Currency</h4>
             <div class="details-grid">
-                <label>CP: <input type="number" class="editable-field w-16" data-coin="cp" value="${sheet.coins.cp}" ${!canEdit ? 'disabled' : ''}></label>
-                <label>SP: <input type="number" class="editable-field w-16" data-coin="sp" value="${sheet.coins.sp}" ${!canEdit ? 'disabled' : ''}></label>
-                <label>GP: <input type="number" class="editable-field w-16" data-coin="gp" value="${sheet.coins.gp}" ${!canEdit ? 'disabled' : ''}></label>
+                <label>CP: <input type="number" class="editable-field w-16 text-white" data-coin="cp" value="${sheet.coins.cp}" ${!canEdit ? 'disabled' : ''}></label>
+                <label>SP: <input type="number" class="editable-field w-16 text-white" data-coin="sp" value="${sheet.coins.sp}" ${!canEdit ? 'disabled' : ''}></label>
+                <label>GP: <input type="number" class="editable-field w-16 text-white" data-coin="gp" value="${sheet.coins.gp}" ${!canEdit ? 'disabled' : ''}></label>
             </div>
         </div>`;
 
@@ -514,9 +522,9 @@ function createPlayerCard(playerData) {
         </div>
         <p class="text-slate-300 italic text-sm">${sheet.class}</p>
         <div class="grid grid-cols-3 text-center text-sm">
-            <div><span class="font-bold">HP</span><br><input type="number" class="editable-field w-16 text-center" data-stat="hp" value="${sheet.hp}" ${!canEdit ? 'disabled' : ''}></div>
+            <div><span class="font-bold">HP</span><br><input type="number" class="editable-field w-16 text-center text-white" data-stat="hp" value="${sheet.hp}" ${!canEdit ? 'disabled' : ''}></div>
             <div><span class="font-bold">AC</span><br>${calculatedAc}</div>
-            <div><span class="font-bold">Init</span><br><input type="number" class="editable-field w-16 text-center" data-stat="initiative" value="${sheet.initiative}" ${!canEdit ? 'disabled' : ''}></div>
+            <div><span class="font-bold">Init</span><br><input type="number" class="editable-field w-16 text-center text-white" data-stat="initiative" value="${sheet.initiative}" ${!canEdit ? 'disabled' : ''}></div>
         </div>
         <div class="grid grid-cols-2 gap-2 text-sm">
             <div><label class="font-bold">Left Hand</label>${createSelect('leftHand')}</div>
