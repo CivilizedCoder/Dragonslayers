@@ -125,6 +125,16 @@ function initializeFirebase() {
     signInAnonymously(auth).catch(error => console.error("Anonymous sign-in failed:", error));
 }
 
+function cleanHtml(html) {
+    // Create a temporary element to help with decoding
+    const tempEl = document.createElement('div');
+    tempEl.innerHTML = html
+        .replace(/<br\s*\/?>/gi, '\n'); // Replace <br> with newlines
+
+    // Use textContent to strip all other tags and decode entities
+    return tempEl.textContent || '';
+}
+
 function parseCharacterSheet(htmlString) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlString, "text/html");
@@ -175,7 +185,7 @@ function parseCharacterSheet(htmlString) {
         });
         
         const inventoryItems = new Set();
-        const equipmentText = getdiv('.block.b31 .divedit');
+        const equipmentText = cleanHtml(getdiv('.block.b31 .divedit'));
         character.equipment = equipmentText;
 
         Object.keys(WEAPONS).forEach(key => {
@@ -206,16 +216,18 @@ function parseCharacterSheet(htmlString) {
             pp: getval('.block.b30 .line:nth-child(5) input'),
         }
 
-        character.features = getdiv('.block.b38 .divedit');
-
-        character.spells = { cantrips: [], level1: [] };
-        doc.querySelectorAll('.block.b53 .line.line2 input').forEach(input => {
-            if (input.value) character.spells.cantrips.push(input.value);
-        });
-        doc.querySelectorAll('.block.b54:first-of-type .line.line2 input.textinput').forEach(input => {
-             if (input.value) character.spells.level1.push(input.value);
-        });
+        character.features = cleanHtml(getdiv('.block.b38 .divedit'));
         
+        let spellsText = "Cantrips:\n";
+        doc.querySelectorAll('.block.b53 .line.line2 input').forEach(input => {
+            if (input.value) spellsText += `- ${input.value}\n`;
+        });
+        spellsText += "\nLevel 1:\n";
+        doc.querySelectorAll('.block.b54:first-of-type .line.line2 input.textinput').forEach(input => {
+             if (input.value) spellsText += `- ${input.value}\n`;
+        });
+        character.spellsText = spellsText;
+
         character.leftHand = '';
         character.rightHand = '';
 
@@ -263,13 +275,14 @@ async function createOrUpdatePlayer() {
 function setupPlayerListener() {
     const playersCollectionRef = collection(db, `artifacts/${appId}/public/data/players`);
     playersUnsubscribe = onSnapshot(playersCollectionRef, (snapshot) => {
+        const currentlyExpanded = new Set();
+        document.querySelectorAll('.details-panel.expanded').forEach(p => currentlyExpanded.add(p.closest('.card').id));
+
         snapshot.docChanges().forEach((change) => {
             const playerData = change.doc.data();
-            const oldData = players.get(playerData.id);
-
-            // Preserve expanded state
-            if (oldData) {
-                playerData.isExpanded = oldData.isExpanded;
+            
+            if (currentlyExpanded.has(`player-${playerData.id}`)) {
+                playerData.isExpanded = true;
             }
 
             if(playerData.id === userId) localPlayer = playerData;
@@ -478,12 +491,6 @@ function setupDiceRollListener() {
 }
 
 function renderPlayers() {
-    const expandedPlayerIds = new Set();
-    document.querySelectorAll('.details-panel.expanded').forEach(panel => {
-        const card = panel.closest('.card');
-        if (card) expandedPlayerIds.add(card.id);
-    });
-
     playersList.innerHTML = '';
     if (players.size === 0) {
          playersList.innerHTML = `<p class="text-slate-400 italic text-center">No adventurers have joined...</p>`;
@@ -491,7 +498,7 @@ function renderPlayers() {
          players.forEach(playerData => {
             const card = createPlayerCard(playerData);
             playersList.appendChild(card);
-            if (expandedPlayerIds.has(card.id)) {
+            if (playerData.isExpanded) {
                 card.querySelector('.details-panel')?.classList.add('expanded');
             }
          });
@@ -567,7 +574,7 @@ function createPlayerCard(playerData) {
             </ul>
 
             <h4>Spells</h4>
-            <textarea class="editable-field w-full h-24 text-sm mt-1" data-sheet-key="spells_text" ${!canEdit ? 'disabled' : ''}>${sheet.spells.cantrips.join(', ')}\n${sheet.spells.level1.join(', ')}</textarea>
+            <textarea class="editable-field w-full h-24 text-sm mt-1" data-sheet-key="spellsText" ${!canEdit ? 'disabled' : ''}>${sheet.spellsText || ''}</textarea>
 
             <h4>Features & Traits</h4>
             <textarea class="editable-field w-full h-32 text-sm mt-1" data-sheet-key="features" ${!canEdit ? 'disabled' : ''}>${sheet.features}</textarea>
@@ -701,6 +708,7 @@ document.body.addEventListener('change', (event) => {
         sheet[target.dataset.stat] = parseInt(target.value, 10);
     }
     if (target.matches('[data-coin]')) {
+        if(!sheet.coins) sheet.coins = {};
         sheet.coins[target.dataset.coin] = parseInt(target.value, 10);
     }
     if (target.matches('[data-sheet-key]')) {
@@ -739,6 +747,7 @@ document.body.addEventListener('click', (event) => {
             }
         }
     }
+
     if (target.matches('[data-attack-type="to-hit"]')) {
         rollToHit(target.dataset.npcId);
     }
