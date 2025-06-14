@@ -20,8 +20,24 @@ body {
 .enemy-card {
     background-color: #4a2d34;
     border: 1px solid #8c3a4a;
-    cursor: crosshair; /* Indicate it's attackable */
 }
+
+/* New styles for attack zones */
+.attack-zone-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    z-index: 10; /* Make sure it's on top of other content */
+}
+.attack-zone {
+    width: 50%;
+    height: 100%;
+    cursor: crosshair;
+}
+
 /* Modal styles */
 .modal-overlay {
     position: fixed;
@@ -103,7 +119,11 @@ body {
     border-radius: 0.375rem; /* rounded-md */
     padding: 0.25rem 0.5rem; /* py-1 px-2 */
     width: 100%;
-    color: #1e293b; /* text-slate-800 */
+    color: #1e293b !important; /* text-slate-800 */
+}
+.editable-field:disabled {
+    background-color: #475569;
+    color: #e2e8f0;
 }
 
 
@@ -117,6 +137,7 @@ body {
     pointer-events: none;
     overflow: hidden;
     border-radius: 0.5rem;
+    z-index: 20;
 }
 
 .animation-overlay > div {

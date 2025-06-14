@@ -155,7 +155,7 @@ function parseCharacterSheet(htmlString) {
         character.ac = parseInt(getval('.block.b21 input'), 10);
         character.initiative = getval('.block.b22 input');
         character.speed = getval('.block.b23 input');
-        character.proficiencyBonus = getval('.block.b14 input');
+        character.proficiencyBonus = parseInt(getval('.block.b14 input').replace('+', ''), 10);
         
         character.abilityScores = {
             str: getval('.block.b6 .line3 input'),
@@ -314,7 +314,7 @@ function calculateModifier(score) {
     return Math.floor((parseInt(score, 10) - 10) / 2);
 }
 
-function getAttackBonus(sheet, weapon) {
+function getAttackModifier(sheet, weapon) {
     const strMod = calculateModifier(sheet.abilityScores.str);
     const dexMod = calculateModifier(sheet.abilityScores.dex);
 
@@ -324,8 +324,24 @@ function getAttackBonus(sheet, weapon) {
     return strMod; // Default to strength for melee
 }
 
+async function rollToHit(npcId) {
+    if (!localPlayer || !localPlayer.sheet.rightHand) return;
+    const weaponKey = localPlayer.sheet.rightHand;
+    const weapon = WEAPONS[weaponKey];
+    const sheet = localPlayer.sheet;
+    const targetNpc = npcs.get(npcId);
+    if (!weapon || !targetNpc || weapon.type === 'armor') return;
 
-async function attackNpc(npcId) {
+    const attackModifier = getAttackModifier(sheet, weapon) + sheet.proficiencyBonus;
+    const roll = Math.floor(Math.random() * 20) + 1;
+    const total = roll + attackModifier;
+
+    const message = `${sheet.name} attacks ${targetNpc.name} (${weapon.name}): rolls ${total} to hit (1d20 + ${attackModifier})`;
+    await logRollToHistory(message);
+}
+
+
+async function rollForDamage(npcId) {
     if (!localPlayer || !localPlayer.sheet.rightHand) return;
     const weaponKey = localPlayer.sheet.rightHand;
     const weapon = WEAPONS[weaponKey];
@@ -334,17 +350,20 @@ async function attackNpc(npcId) {
     if (!weapon || !targetNpc || weapon.type === 'armor') return;
 
     let damageDie = weapon.damage;
-    // Check for versatile property and if the other hand is free
     if (weapon.versatile && !sheet.leftHand) {
         damageDie = weapon.versatile;
     }
     
-    const modifier = getAttackBonus(sheet, weapon);
-    const damage = rollDamage(damageDie) + modifier;
-    const newHp = Math.max(0, targetNpc.hp - damage);
+    const modifier = getAttackModifier(sheet, weapon);
+    const damageRoll = rollDamage(damageDie);
+    const totalDamage = damageRoll + modifier;
+    const newHp = Math.max(0, targetNpc.hp - totalDamage);
     
     await updateNpcStat(npcId, 'hp', newHp);
     playAnimation(npcId, weapon.type);
+    
+    const message = `${sheet.name} hits for ${totalDamage} (${damageDie} + ${modifier}) ${weapon.type} damage!`;
+    await logRollToHistory(message);
 }
 
 function playAnimation(targetId, animationType) {
@@ -432,15 +451,22 @@ function setupBeforeUnloadListener() {
     });
 }
 
+async function logRollToHistory(message) {
+    const rollsCollectionRef = collection(db, `artifacts/${appId}/public/data/dice-rolls`);
+    await addDoc(rollsCollectionRef, {
+        message: message,
+        timestamp: serverTimestamp()
+    });
+}
+
 async function rollDice(sides) {
     if (!localPlayer) return;
     const result = Math.floor(Math.random() * sides) + 1;
     animateDiceRoll(result);
-    const rollsCollectionRef = collection(db, `artifacts/${appId}/public/data/dice-rolls`);
-    await addDoc(rollsCollectionRef, {
-        playerName: localPlayer.sheet.name, sides: sides, result: result, timestamp: serverTimestamp()
-    });
+    const message = `${localPlayer.sheet.name} rolls a d${sides}: ${result}`;
+    await logRollToHistory(message);
 }
+
 
 function setupDiceRollListener() {
     const rollsCollectionRef = collection(db, `artifacts/${appId}/public/data/dice-rolls`);
@@ -513,7 +539,7 @@ function createPlayerCard(playerData) {
     if(sheet.rightHand && WEAPONS[sheet.rightHand]){
         const weapon = WEAPONS[sheet.rightHand];
         if(weapon.type !== 'armor'){
-            const modifier = getAttackBonus(sheet, weapon);
+            const modifier = getAttackModifier(sheet, weapon);
             let damageDie = weapon.damage;
             if(weapon.versatile && !sheet.leftHand) {
                 damageDie = weapon.versatile;
@@ -588,22 +614,21 @@ function createNpcCard(npcData) {
     const isDMView = localPlayer?.isDM;
     const card = document.createElement('div');
     card.id = `npc-${npcData.id}`;
-    card.className = 'card enemy-card rounded-lg p-4 flex flex-col space-y-3 shadow-lg';
+    card.className = 'card enemy-card rounded-lg p-4 flex flex-col space-y-3 shadow-lg relative';
     const showRemoveButton = isDMView && npcData.isRemovable;
 
     card.innerHTML = `
+        <div class="attack-zone-container">
+            <div class="attack-zone" data-attack-type="to-hit" data-npc-id="${npcData.id}"></div>
+            <div class="attack-zone" data-attack-type="damage" data-npc-id="${npcData.id}"></div>
+        </div>
         <div class="flex justify-between items-start">
             <h3 class="text-2xl font-fantasy text-red-300">${npcData.name}</h3>
-            ${showRemoveButton ? `<button data-remove-id="${npcData.id}" class="remove-npc-btn bg-red-900 hover:bg-red-800 text-white font-bold h-6 w-6 rounded-full flex items-center justify-center text-sm p-1">X</button>` : ''}
+            ${showRemoveButton ? `<button data-remove-id="${npcData.id}" class="remove-npc-btn bg-red-900 hover:bg-red-800 text-white font-bold h-6 w-6 rounded-full flex items-center justify-center text-sm p-1 z-10">X</button>` : ''}
         </div>
-        <div class="flex items-center justify-between"><label class="font-bold">HP:</label><div class="flex items-center gap-2"><button data-action="hp-down" class="bg-red-800 h-8 w-8 rounded-full">-</button><span class="text-xl w-12 text-center">${npcData.hp}</span><button data-action="hp-up" class="bg-green-800 h-8 w-8 rounded-full">+</button></div></div>
+        <div class="flex items-center justify-between"><label class="font-bold">HP:</label><div class="flex items-center gap-2"><button data-action="hp-down" class="bg-red-800 h-8 w-8 rounded-full z-10">-</button><span class="text-xl w-12 text-center">${npcData.hp}</span><button data-action="hp-up" class="bg-green-800 h-8 w-8 rounded-full z-10">+</button></div></div>
     `;
     
-    card.addEventListener('click', (event) => {
-        if (event.target.closest('button')) return;
-        attackNpc(npcData.id);
-    });
-
     card.querySelectorAll('[data-action="hp-down"], [data-action="hp-up"]').forEach(btn => {
         if (!isDMView) btn.disabled = true;
         else {
@@ -621,7 +646,7 @@ function animateDiceRoll(result) {
 }
 
 function updateDiceLog(rolls) {
-    diceLogEl.innerHTML = rolls.map(roll => `<div class="text-sm text-slate-300"><span class="font-bold text-amber-300">${roll.playerName}</span> rolled a <span class="font-bold text-white">${roll.result}</span> on a <span class="font-mono text-xs">d${roll.sides}</span></div>`).join('');
+    diceLogEl.innerHTML = rolls.map(roll => `<div class="text-sm text-slate-300">${roll.message}</div>`).join('');
 }
 
 // EVENT LISTENERS
@@ -700,19 +725,26 @@ document.body.addEventListener('change', (event) => {
 
 document.body.addEventListener('click', (event) => {
     const target = event.target;
-    const card = target.closest('.card');
-    if (card) {
-        const playerId = card.id.replace('player-', '');
-        const player = players.get(playerId);
-        if (target.matches('.remove-player-btn')) { removePlayer(playerId); }
-        if (target.matches('.details-btn')) {
+    if (target.matches('.remove-player-btn')) { removePlayer(target.dataset.removeId); }
+    if (target.matches('.remove-npc-btn')) { removeNpc(target.dataset.removeId); }
+    
+    if (target.matches('.details-btn')) {
+        const card = target.closest('.card');
+        if (card) {
+            const playerId = card.id.replace('player-', '');
+            const player = players.get(playerId);
             if (player) {
                 player.isExpanded = !player.isExpanded;
                 card.querySelector('.details-panel')?.classList.toggle('expanded');
             }
         }
     }
-    if (target.matches('.remove-npc-btn')) { removeNpc(target.dataset.removeId); }
+    if (target.matches('[data-attack-type="to-hit"]')) {
+        rollToHit(target.dataset.npcId);
+    }
+    if (target.matches('[data-attack-type="damage"]')) {
+        rollForDamage(target.dataset.npcId);
+    }
 });
 
 initializeFirebase();
