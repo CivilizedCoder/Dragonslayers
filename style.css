@@ -81,8 +81,9 @@ body {
     @apply bg-slate-800/50 p-2 rounded-md;
 }
 .editable-field {
-    @apply bg-slate-800 border border-slate-600 rounded-md py-1 px-2 w-full;
+    @apply bg-slate-200 border border-slate-400 rounded-md py-1 px-2 w-full text-black;
 }
+
 
 /* --- DAMAGE ANIMATIONS --- */
 .animation-overlay {

@@ -430,11 +430,27 @@ function setupDiceRollListener() {
 }
 
 function renderPlayers() {
+    // Save the expanded states before re-rendering
+    const expandedPlayerIds = new Set();
+    document.querySelectorAll('.details-panel.expanded').forEach(panel => {
+        const card = panel.closest('.card');
+        if (card) {
+            expandedPlayerIds.add(card.id);
+        }
+    });
+
     playersList.innerHTML = '';
     if (players.size === 0) {
          playersList.innerHTML = `<p class="text-slate-400 italic text-center">No adventurers have joined...</p>`;
     } else {
-         players.forEach(playerData => playersList.appendChild(createPlayerCard(playerData)));
+         players.forEach(playerData => {
+            const card = createPlayerCard(playerData);
+            playersList.appendChild(card);
+            // Re-apply expanded state
+            if (expandedPlayerIds.has(card.id)) {
+                card.querySelector('.details-panel')?.classList.add('expanded');
+            }
+         });
     }
 }
 
@@ -472,7 +488,7 @@ function createPlayerCard(playerData) {
                 optionsHtml += `<option value="${itemKey}" ${sheet[hand] === itemKey ? 'selected' : ''}>${item.name}</option>`;
             }
         });
-        return `<select data-hand="${hand}" class="editable-field w-full text-sm text-white" ${!canEdit ? 'disabled' : ''}>${optionsHtml}</select>`;
+        return `<select data-hand="${hand}" class="editable-field w-full text-sm" ${!canEdit ? 'disabled' : ''}>${optionsHtml}</select>`;
     }
 
     const detailsHtml = `
@@ -506,9 +522,9 @@ function createPlayerCard(playerData) {
 
             <h4>Currency</h4>
             <div class="details-grid">
-                <label>CP: <input type="number" class="editable-field w-16 text-white" data-coin="cp" value="${sheet.coins.cp}" ${!canEdit ? 'disabled' : ''}></label>
-                <label>SP: <input type="number" class="editable-field w-16 text-white" data-coin="sp" value="${sheet.coins.sp}" ${!canEdit ? 'disabled' : ''}></label>
-                <label>GP: <input type="number" class="editable-field w-16 text-white" data-coin="gp" value="${sheet.coins.gp}" ${!canEdit ? 'disabled' : ''}></label>
+                <label>CP: <input type="number" class="editable-field w-16" data-coin="cp" value="${sheet.coins.cp}" ${!canEdit ? 'disabled' : ''}></label>
+                <label>SP: <input type="number" class="editable-field w-16" data-coin="sp" value="${sheet.coins.sp}" ${!canEdit ? 'disabled' : ''}></label>
+                <label>GP: <input type="number" class="editable-field w-16" data-coin="gp" value="${sheet.coins.gp}" ${!canEdit ? 'disabled' : ''}></label>
             </div>
         </div>`;
 
@@ -522,9 +538,9 @@ function createPlayerCard(playerData) {
         </div>
         <p class="text-slate-300 italic text-sm">${sheet.class}</p>
         <div class="grid grid-cols-3 text-center text-sm">
-            <div><span class="font-bold">HP</span><br><input type="number" class="editable-field w-16 text-center text-white" data-stat="hp" value="${sheet.hp}" ${!canEdit ? 'disabled' : ''}></div>
+            <div><span class="font-bold">HP</span><br><input type="number" class="editable-field w-16 text-center" data-stat="hp" value="${sheet.hp}" ${!canEdit ? 'disabled' : ''}></div>
             <div><span class="font-bold">AC</span><br>${calculatedAc}</div>
-            <div><span class="font-bold">Init</span><br><input type="number" class="editable-field w-16 text-center text-white" data-stat="initiative" value="${sheet.initiative}" ${!canEdit ? 'disabled' : ''}></div>
+            <div><span class="font-bold">Init</span><br><input type="number" class="editable-field w-16 text-center" data-stat="initiative" value="${sheet.initiative}" ${!canEdit ? 'disabled' : ''}></div>
         </div>
         <div class="grid grid-cols-2 gap-2 text-sm">
             <div><label class="font-bold">Left Hand</label>${createSelect('leftHand')}</div>
