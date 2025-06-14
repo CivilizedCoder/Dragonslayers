@@ -178,7 +178,6 @@ function parseCharacterSheet(htmlString) {
         const equipmentText = getdiv('.block.b31 .divedit');
         character.equipment = equipmentText;
 
-        // Scan equipment text for known items
         Object.keys(WEAPONS).forEach(key => {
             const regex = new RegExp(`\\b${WEAPONS[key].name}\\b`, 'i');
             if (regex.test(equipmentText)) {
@@ -186,7 +185,6 @@ function parseCharacterSheet(htmlString) {
             }
         });
 
-        // Scan attacks box for weapons
         doc.querySelectorAll('.block.b28 .line.line2 input:first-child').forEach(input => {
             const weaponName = input.value.trim().toLowerCase();
             if (weaponName) {
@@ -198,7 +196,6 @@ function parseCharacterSheet(htmlString) {
         });
 
         character.inventory = Array.from(inventoryItems);
-
 
         character.coins = {
             cp: getval('.block.b30 .line:nth-child(1) input'),
@@ -229,7 +226,6 @@ function parseCharacterSheet(htmlString) {
     }
 }
 
-
 async function initializeGameStateAsDM() {
     const dummyRef = doc(db, `artifacts/${appId}/public/data/npcs`, 'training-dummy');
     const dummySnap = await getDoc(dummyRef);
@@ -249,7 +245,7 @@ async function createOrUpdatePlayer() {
         id: userId,
         isOnline: true,
         sheet: parsedCharacter,
-        isDM: false // Default to false for uploaded sheets
+        isDM: false
     };
 
     try {
@@ -267,6 +263,13 @@ function setupPlayerListener() {
     playersUnsubscribe = onSnapshot(playersCollectionRef, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
             const playerData = change.doc.data();
+            const oldData = players.get(playerData.id);
+
+            // Preserve expanded state
+            if (oldData) {
+                playerData.isExpanded = oldData.isExpanded;
+            }
+
             if(playerData.id === userId) localPlayer = playerData;
             
             if (change.type === "added" || change.type === "modified") {
@@ -313,7 +316,6 @@ async function attackNpc(npcId) {
     if (!weapon || !targetNpc || weapon.type === 'armor') return;
 
     let damageDie = weapon.damage;
-    // Check for versatile property and if the other hand is free
     if (weapon.versatile && !localPlayer.sheet.leftHand) {
         damageDie = weapon.versatile;
     }
@@ -430,15 +432,6 @@ function setupDiceRollListener() {
 }
 
 function renderPlayers() {
-    // Save the expanded states before re-rendering
-    const expandedPlayerIds = new Set();
-    document.querySelectorAll('.details-panel.expanded').forEach(panel => {
-        const card = panel.closest('.card');
-        if (card) {
-            expandedPlayerIds.add(card.id);
-        }
-    });
-
     playersList.innerHTML = '';
     if (players.size === 0) {
          playersList.innerHTML = `<p class="text-slate-400 italic text-center">No adventurers have joined...</p>`;
@@ -446,8 +439,7 @@ function renderPlayers() {
          players.forEach(playerData => {
             const card = createPlayerCard(playerData);
             playersList.appendChild(card);
-            // Re-apply expanded state
-            if (expandedPlayerIds.has(card.id)) {
+            if (playerData.isExpanded) {
                 card.querySelector('.details-panel')?.classList.add('expanded');
             }
          });
@@ -509,16 +501,13 @@ function createPlayerCard(playerData) {
             </ul>
 
             <h4>Spells</h4>
-            <div class="details-block">
-                <p><strong>Cantrips:</strong> ${sheet.spells.cantrips.join(', ')}</p>
-                <p><strong>Level 1:</strong> ${sheet.spells.level1.join(', ')}</p>
-            </div>
+            <textarea class="editable-field w-full h-24 text-sm mt-1" data-sheet-key="spells_text" ${!canEdit ? 'disabled' : ''}>${sheet.spells.cantrips.join(', ')}\n${sheet.spells.level1.join(', ')}</textarea>
 
             <h4>Features & Traits</h4>
-            <div class="details-block">${sheet.features}</div>
+            <textarea class="editable-field w-full h-32 text-sm mt-1" data-sheet-key="features" ${!canEdit ? 'disabled' : ''}>${sheet.features}</textarea>
             
             <h4>Equipment</h4>
-            <div class="details-block">${sheet.equipment}</div>
+            <textarea class="editable-field w-full h-32 text-sm mt-1" data-sheet-key="equipment" ${!canEdit ? 'disabled' : ''}>${sheet.equipment}</textarea>
 
             <h4>Currency</h4>
             <div class="details-grid">
@@ -641,16 +630,16 @@ document.body.addEventListener('change', (event) => {
     const player = players.get(playerId);
     if (!player) return;
 
-    let sheet = { ...player.sheet }; // Create a mutable copy
+    let sheet = { ...player.sheet }; 
 
     if (target.matches('[data-stat]')) {
         sheet[target.dataset.stat] = parseInt(target.value, 10);
-        updatePlayerSheet(playerId, sheet);
     }
-
     if (target.matches('[data-coin]')) {
         sheet.coins[target.dataset.coin] = parseInt(target.value, 10);
-        updatePlayerSheet(playerId, sheet);
+    }
+    if (target.matches('[data-sheet-key]')) {
+        sheet[target.dataset.sheetKey] = target.value;
     }
     
     if (target.matches('[data-hand]')) {
@@ -660,27 +649,30 @@ document.body.addEventListener('change', (event) => {
 
         sheet[hand] = selectedItemKey;
 
-        // Two-handed logic
         if (selectedItem && selectedItem.hands === 2) {
             sheet.leftHand = selectedItemKey;
             sheet.rightHand = selectedItemKey;
         }
-        
-        updatePlayerSheet(playerId, sheet);
     }
+    updatePlayerSheet(playerId, sheet);
 });
 
 
 document.body.addEventListener('click', (event) => {
     const target = event.target;
-    if (target.matches('.remove-player-btn')) { removePlayer(target.dataset.removeId); }
-    if (target.matches('.remove-npc-btn')) { removeNpc(target.dataset.removeId); }
-    if (target.matches('.details-btn')) {
-        const detailsPanel = target.closest('.card').querySelector('.details-panel');
-        if (detailsPanel) {
-            detailsPanel.classList.toggle('expanded');
+    const card = target.closest('.card');
+    if (card) {
+        const playerId = card.id.replace('player-', '');
+        if (target.matches('.remove-player-btn')) { removePlayer(playerId); }
+        if (target.matches('.details-btn')) {
+            const player = players.get(playerId);
+            if (player) {
+                player.isExpanded = !player.isExpanded;
+                card.querySelector('.details-panel')?.classList.toggle('expanded');
+            }
         }
     }
+    if (target.matches('.remove-npc-btn')) { removeNpc(target.dataset.removeId); }
 });
 
 initializeFirebase();

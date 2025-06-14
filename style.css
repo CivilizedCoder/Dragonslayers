@@ -68,20 +68,42 @@ body {
 }
 
 .details-panel h4 {
-    @apply font-bold text-amber-300 font-fantasy text-lg mt-2 mb-1;
+    font-family: 'MedievalSharp', cursive;
+    font-weight: bold;
+    color: #fcd34d; /* amber-300 */
+    font-size: 1.125rem; /* text-lg */
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
 }
 
 .details-grid {
-    @apply grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem 1rem;
+    font-size: 0.875rem; /* text-sm */
 }
 .details-list {
-    @apply list-disc list-inside space-y-1 pl-2 text-sm;
+    list-style: disc;
+    list-style-position: inside;
+    padding-left: 0.5rem;
+    font-size: 0.875rem; /* text-sm */
 }
+.details-list li {
+    margin-bottom: 0.25rem;
+}
+
 .details-block {
-    @apply bg-slate-800/50 p-2 rounded-md;
+    background-color: rgba(30, 41, 59, 0.5); /* bg-slate-800/50 */
+    padding: 0.5rem;
+    border-radius: 0.375rem; /* rounded-md */
 }
 .editable-field {
-    @apply bg-slate-200 border border-slate-400 rounded-md py-1 px-2 w-full text-black;
+    background-color: #e2e8f0; /* bg-slate-200 */
+    border: 1px solid #94a3b8; /* border-slate-400 */
+    border-radius: 0.375rem; /* rounded-md */
+    padding: 0.25rem 0.5rem; /* py-1 px-2 */
+    width: 100%;
+    color: #1e293b; /* text-slate-800 */
 }
 
 
