@@ -17,7 +17,7 @@ const appId = 'dnd-tracker-dragonslayers';
 const WEAPONS = {
     // Simple Melee
     club: { name: 'Club', damage: '1d4', type: 'bludgeoning', hands: 1 },
-    dagger: { name: 'Dagger', damage: '1d4', type: 'piercing', hands: 1 },
+    dagger: { name: 'Dagger', damage: '1d4', type: 'piercing', hands: 1, property: 'finesse' },
     greatclub: { name: 'Greatclub', damage: '1d8', type: 'bludgeoning', hands: 2 },
     handaxe: { name: 'Handaxe', damage: '1d6', type: 'slashing', hands: 1 },
     javelin: { name: 'Javelin', damage: '1d6', type: 'piercing', hands: 1 },
@@ -28,7 +28,7 @@ const WEAPONS = {
     spear: { name: 'Spear', damage: '1d6', type: 'piercing', hands: 1, versatile: '1d8' },
     // Simple Ranged
     light_crossbow: { name: 'Light Crossbow', damage: '1d8', type: 'piercing', hands: 2 },
-    dart: { name: 'Dart', damage: '1d4', type: 'piercing', hands: 1 },
+    dart: { name: 'Dart', damage: '1d4', type: 'piercing', hands: 1, property: 'finesse' },
     shortbow: { name: 'Shortbow', damage: '1d6', type: 'piercing', hands: 2 },
     sling: { name: 'Sling', damage: '1d4', type: 'bludgeoning', hands: 1 },
     // Martial Melee
@@ -43,13 +43,13 @@ const WEAPONS = {
     maul: { name: 'Maul', damage: '2d6', type: 'bludgeoning', hands: 2 },
     morningstar: { name: 'Morningstar', damage: '1d8', type: 'piercing', hands: 1 },
     pike: { name: 'Pike', damage: '1d10', type: 'piercing', hands: 2 },
-    rapier: { name: 'Rapier', damage: '1d8', type: 'piercing', hands: 1 },
-    scimitar: { name: 'Scimitar', damage: '1d6', type: 'slashing', hands: 1 },
-    shortsword: { name: 'Shortsword', damage: '1d6', type: 'piercing', hands: 1 },
+    rapier: { name: 'Rapier', damage: '1d8', type: 'piercing', hands: 1, property: 'finesse' },
+    scimitar: { name: 'Scimitar', damage: '1d6', type: 'slashing', hands: 1, property: 'finesse' },
+    shortsword: { name: 'Shortsword', damage: '1d6', type: 'piercing', hands: 1, property: 'finesse' },
     trident: { name: 'Trident', damage: '1d6', type: 'piercing', hands: 1, versatile: '1d8' },
     war_pick: { name: 'War Pick', damage: '1d8', type: 'piercing', hands: 1 },
     warhammer: { name: 'Warhammer', damage: '1d8', type: 'bludgeoning', hands: 1, versatile: '1d10' },
-    whip: { name: 'Whip', damage: '1d4', type: 'slashing', hands: 1 },
+    whip: { name: 'Whip', damage: '1d4', type: 'slashing', hands: 1, property: 'finesse' },
     // Martial Ranged
     blowgun: { name: 'Blowgun', damage: '1', type: 'piercing', hands: 1 },
     hand_crossbow: { name: 'Hand Crossbow', damage: '1d6', type: 'piercing', hands: 1 },
@@ -197,6 +197,7 @@ function parseCharacterSheet(htmlString) {
 
         character.inventory = Array.from(inventoryItems);
 
+
         character.coins = {
             cp: getval('.block.b30 .line:nth-child(1) input'),
             sp: getval('.block.b30 .line:nth-child(2) input'),
@@ -225,6 +226,7 @@ function parseCharacterSheet(htmlString) {
         return null;
     }
 }
+
 
 async function initializeGameStateAsDM() {
     const dummyRef = doc(db, `artifacts/${appId}/public/data/npcs`, 'training-dummy');
@@ -308,19 +310,37 @@ async function createNpc() {
     npcHpInput.value = '10';
 }
 
+function calculateModifier(score) {
+    return Math.floor((parseInt(score, 10) - 10) / 2);
+}
+
+function getAttackBonus(sheet, weapon) {
+    const strMod = calculateModifier(sheet.abilityScores.str);
+    const dexMod = calculateModifier(sheet.abilityScores.dex);
+
+    if (weapon.property === 'finesse') {
+        return Math.max(strMod, dexMod);
+    }
+    return strMod; // Default to strength for melee
+}
+
+
 async function attackNpc(npcId) {
     if (!localPlayer || !localPlayer.sheet.rightHand) return;
     const weaponKey = localPlayer.sheet.rightHand;
     const weapon = WEAPONS[weaponKey];
+    const sheet = localPlayer.sheet;
     const targetNpc = npcs.get(npcId);
     if (!weapon || !targetNpc || weapon.type === 'armor') return;
 
     let damageDie = weapon.damage;
-    if (weapon.versatile && !localPlayer.sheet.leftHand) {
+    // Check for versatile property and if the other hand is free
+    if (weapon.versatile && !sheet.leftHand) {
         damageDie = weapon.versatile;
     }
-
-    const damage = rollDamage(damageDie);
+    
+    const modifier = getAttackBonus(sheet, weapon);
+    const damage = rollDamage(damageDie) + modifier;
     const newHp = Math.max(0, targetNpc.hp - damage);
     
     await updateNpcStat(npcId, 'hp', newHp);
@@ -432,6 +452,12 @@ function setupDiceRollListener() {
 }
 
 function renderPlayers() {
+    const expandedPlayerIds = new Set();
+    document.querySelectorAll('.details-panel.expanded').forEach(panel => {
+        const card = panel.closest('.card');
+        if (card) expandedPlayerIds.add(card.id);
+    });
+
     playersList.innerHTML = '';
     if (players.size === 0) {
          playersList.innerHTML = `<p class="text-slate-400 italic text-center">No adventurers have joined...</p>`;
@@ -439,7 +465,7 @@ function renderPlayers() {
          players.forEach(playerData => {
             const card = createPlayerCard(playerData);
             playersList.appendChild(card);
-            if (playerData.isExpanded) {
+            if (expandedPlayerIds.has(card.id)) {
                 card.querySelector('.details-panel')?.classList.add('expanded');
             }
          });
@@ -466,10 +492,10 @@ function createPlayerCard(playerData) {
     card.className = `card rounded-lg p-4 flex flex-col space-y-3 shadow-lg ${isCurrentUser ? 'border-amber-400' : ''}`;
     
     const showRemoveButton = isDMView && !isCurrentUser;
-    const weaponName = WEAPONS[sheet.rightHand]?.name || 'Unarmed';
+    
     let calculatedAc = sheet.ac;
     if (sheet.leftHand === 'shield') {
-        calculatedAc += 2;
+        calculatedAc += WEAPONS['shield'].ac;
     }
     
     const createSelect = (hand) => {
@@ -482,6 +508,20 @@ function createPlayerCard(playerData) {
         });
         return `<select data-hand="${hand}" class="editable-field w-full text-sm" ${!canEdit ? 'disabled' : ''}>${optionsHtml}</select>`;
     }
+
+    let damageString = 'N/A';
+    if(sheet.rightHand && WEAPONS[sheet.rightHand]){
+        const weapon = WEAPONS[sheet.rightHand];
+        if(weapon.type !== 'armor'){
+            const modifier = getAttackBonus(sheet, weapon);
+            let damageDie = weapon.damage;
+            if(weapon.versatile && !sheet.leftHand) {
+                damageDie = weapon.versatile;
+            }
+            damageString = `${damageDie} ${modifier >= 0 ? '+' : '-'} ${Math.abs(modifier)} ${weapon.type}`;
+        }
+    }
+
 
     const detailsHtml = `
         <div class="details-panel">
@@ -535,6 +575,7 @@ function createPlayerCard(playerData) {
             <div><label class="font-bold">Left Hand</label>${createSelect('leftHand')}</div>
             <div><label class="font-bold">Right Hand</label>${createSelect('rightHand')}</div>
         </div>
+        <div class="text-sm text-center bg-slate-800/50 p-1 rounded-md"><span class="font-bold">Damage:</span> ${damageString}</div>
         <button class="details-btn w-full text-xs py-1 rounded bg-slate-600 hover:bg-slate-500" ${!canEdit ? 'disabled' : ''}>Details</button>
         ${showRemoveButton ? `<button data-remove-id="${playerData.id}" class="remove-player-btn mt-2 w-full bg-red-800 hover:bg-red-900 text-xs py-1 rounded-md">Remove</button>` : ''}
         ${canEdit ? detailsHtml : ''}
@@ -609,7 +650,6 @@ sheetUploadInput.addEventListener('change', (event) => {
             previewName.innerHTML = `<span class="font-semibold">Name:</span> ${parsedCharacter.name}`;
             previewClass.innerHTML = `<span class="font-semibold">Class:</span> ${parsedCharacter.class}`;
             previewHp.innerHTML = `<span class="font-semibold">HP:</span> ${parsedCharacter.hp}`;
-            previewWeapon.innerHTML = `<span class="font-semibold">Weapon:</span> ${WEAPONS[parsedCharacter.weapon]?.name || 'Unknown'}`;
             characterPreview.classList.remove('hidden');
             joinButton.disabled = false;
         } else {
@@ -663,9 +703,9 @@ document.body.addEventListener('click', (event) => {
     const card = target.closest('.card');
     if (card) {
         const playerId = card.id.replace('player-', '');
+        const player = players.get(playerId);
         if (target.matches('.remove-player-btn')) { removePlayer(playerId); }
         if (target.matches('.details-btn')) {
-            const player = players.get(playerId);
             if (player) {
                 player.isExpanded = !player.isExpanded;
                 card.querySelector('.details-panel')?.classList.toggle('expanded');
